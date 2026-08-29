@@ -110,13 +110,13 @@ export function resumenDe(
 
 /**
  * Gasto por categoría, descendente.
- * `maxSlices` pliega la cola larga en "Otros": la paleta tiene 8 slots fijos y
- * no se ciclan, así que una novena categoría no inventa un color nuevo.
+ * `maxSlices` pliega la cola larga en "Otros": la paleta tiene 9 slots fijos y
+ * no se ciclan, así que una décima categoría no inventa un color nuevo.
  */
 export function gastoPorCategoria(
   movimientos: readonly Movimiento[],
   periodo: string | null,
-  maxSlices = 7,
+  maxSlices = 8,
 ): GastoPorCategoria[] {
   const rel = activos(movimientos).filter(
     (m) => (periodo === null || m.periodo === periodo) && claseDe(m) === "gasto",

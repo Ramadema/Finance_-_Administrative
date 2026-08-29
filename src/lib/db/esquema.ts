@@ -1,5 +1,5 @@
 import Dexie, { type Table } from "dexie";
-import type { FuenteCategoria, Regla } from "../categorize/motor";
+import { clasificar, type FuenteCategoria, type Regla } from "../categorize/motor";
 
 /**
  * Base local en IndexedDB. Tus movimientos no salen de este navegador.
@@ -155,6 +155,42 @@ export class FinanzasDB extends Dexie {
             m.fechaEstimada = m.fechaEstimada ?? false;
           }),
       );
+
+    // v4: "Ocio y viajes" se parte en "Viajes" y "Joda y ocio". Lo ya guardado
+    // apunta al id viejo, que dejó de existir: sin remapear, `categoria()` lo
+    // manda a "Sin categorizar" y los números del mes cambian solos, sin que
+    // nada en pantalla lo explique.
+    //
+    // Se reclasifica con la semilla nueva, que ya sabe que un cine es joda y
+    // una aerolínea es viaje. Lo que no reconoce cae en "joda": sacando los
+    // viajes —que casi siempre matchean, Despegar, Aerolíneas, Booking— era el
+    // resto del cajón viejo.
+    this.version(4).upgrade(async (tx) => {
+      const destino = (descripcion: string) => {
+        const c = clasificar(descripcion);
+        return c.categoria === "viajes" || c.categoria === "joda"
+          ? { categoria: c.categoria, subcategoria: c.subcategoria }
+          : { categoria: "joda", subcategoria: null };
+      };
+
+      await tx
+        .table<Movimiento>("movimientos")
+        .where("categoria")
+        .equals("ocio")
+        .modify((m) => {
+          Object.assign(m, destino(m.descripcionCruda));
+        });
+
+      // La memoria también: si queda apuntando a "ocio", el próximo import
+      // vuelve a escribir la categoría muerta encima de la nueva.
+      await tx
+        .table<ComercioMemorizado>("comercios")
+        .where("categoria")
+        .equals("ocio")
+        .modify((c) => {
+          Object.assign(c, destino(c.clave));
+        });
+    });
   }
 }
 

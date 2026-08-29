@@ -1,9 +1,10 @@
 /**
  * Taxonomía de categorías.
  *
- * Exactamente 8 raíces de GASTO, una por slot de la paleta validada. El límite
+ * Exactamente 9 raíces de GASTO, una por slot de la paleta validada. El límite
  * viene del color, no del capricho: los slots categóricos no se ciclan, así que
- * una novena raíz no tendría tono propio. Todo lo demás vive como subcategoría.
+ * una raíz de más no tendría tono propio y saldría en el gris de "Otros". Todo
+ * lo demás vive como subcategoría.
  *
  * Las clases que NO son gasto (ingreso / ahorro / interno) usan color semántico,
  * nunca un slot de serie.
@@ -60,7 +61,7 @@ export const CATEGORIAS: readonly Categoria[] = [
     slot: 3,
     clase: "gasto",
     icono: "Zap",
-    subcategorias: ["Luz", "Gas", "Agua", "Internet y cable", "Celular", "Streaming", "Software", "Expensas", "Alquiler"],
+    subcategorias: ["Luz", "Gas", "Agua", "Internet y cable", "Celular", "Streaming", "Software", "Expensas", "Alquiler", "Educación"],
   },
   {
     id: "salud",
@@ -79,12 +80,20 @@ export const CATEGORIAS: readonly Categoria[] = [
     subcategorias: ["Indumentaria", "Electrónica", "Muebles y deco", "Librería", "Regalos"],
   },
   {
-    id: "ocio",
-    nombre: "Ocio y viajes",
+    id: "viajes",
+    nombre: "Viajes",
     slot: 6,
     clase: "gasto",
     icono: "Plane",
-    subcategorias: ["Viajes", "Hotelería", "Entretenimiento", "Deportes", "Educación"],
+    subcategorias: ["Pasajes", "Hotelería", "Excursiones", "Alquiler de auto"],
+  },
+  {
+    id: "joda",
+    nombre: "Joda y ocio",
+    slot: 8,
+    clase: "gasto",
+    icono: "PartyPopper",
+    subcategorias: ["Salidas y boliches", "Recitales y eventos", "Cine y teatro", "Deportes", "Juegos"],
   },
   {
     id: "financiero",
