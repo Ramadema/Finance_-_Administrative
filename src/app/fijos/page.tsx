@@ -4,6 +4,7 @@ import { useDatos } from "@/lib/DatosContext";
 import { Suscripciones } from "@/components/Suscripciones";
 import { Cuotas } from "@/components/charts/Cuotas";
 import { CuotasMes } from "@/components/CuotasMes";
+import { FormGastosFijos } from "@/components/FormGastosFijos";
 import { Card, CardHead } from "@/components/ui/Card";
 import { formatARS } from "@/lib/ingest/numero";
 import { Lock, TrendingUp } from "lucide-react";
@@ -49,6 +50,14 @@ export default function Fijos() {
           acento={conAumento.length > 0 ? "var(--advertencia)" : "var(--bueno)"}
         />
       </div>
+
+      <Card>
+        <CardHead
+          titulo="Los que no pasan por la tarjeta"
+          sub="Alquiler, facultad, prepaga — el resumen del banco no los ve, así que van a mano"
+        />
+        <FormGastosFijos />
+      </Card>
 
       <Card>
         <CardHead

@@ -1,8 +1,9 @@
 import { db, type Movimiento, type Importacion, type ComercioMemorizado,
-         type IngresoManual, type Config } from "./esquema";
+         type IngresoManual, type GastoFijo, type Config } from "./esquema";
 import { parsearBBVATarjeta } from "../ingest/bbva-xls";
 import { asignarIds, hashArchivo, fechaISO, periodoDe } from "../ingest/dedupe";
 import { clasificar, type EntradaMemoria, type Regla } from "../categorize/motor";
+import { clave } from "../categorize/normalizar";
 import type { ResultadoParseo } from "../ingest/tipos";
 
 export interface ResultadoImport {
@@ -122,6 +123,10 @@ export async function importarArchivo(archivo: File): Promise<ResultadoImport> {
     await db().importaciones.put(importacion);
   });
 
+  // El archivo puede haber traído un mes que antes no existía: ese mes también
+  // paga alquiler.
+  await sincronizarGastosFijos();
+
   return {
     ok: true,
     error: null,
@@ -146,17 +151,126 @@ export async function importarArchivo(archivo: File): Promise<ResultadoImport> {
  * categorizado como lo habías dejado.
  */
 export async function borrarImportacion(id: string): Promise<number> {
-  return db().transaction("rw", db().movimientos, db().importaciones, async () => {
-    const borrados = await db().movimientos.where("importacionId").equals(id).delete();
-    await db().importaciones.delete(id);
-    return borrados;
-  });
+  const borrados = await db().transaction(
+    "rw",
+    db().movimientos,
+    db().importaciones,
+    async () => {
+      const n = await db().movimientos.where("importacionId").equals(id).delete();
+      await db().importaciones.delete(id);
+      return n;
+    },
+  );
+  // Si el mes se quedó sin movimientos importados, sus gastos fijos sobran:
+  // un mes que no existe no paga alquiler.
+  await sincronizarGastosFijos();
+  return borrados;
 }
 
 /** Los archivos que ya importaste, del más reciente al más viejo. */
 export async function listarImportaciones(): Promise<Importacion[]> {
   const filas = await db().importaciones.toArray();
   return filas.sort((a, b) => b.fechaImport.localeCompare(a.fechaImport));
+}
+
+// ---------- Gastos fijos cargados a mano ----------
+
+/**
+ * Marca de origen de los movimientos que genera un gasto fijo.
+ * Los separa de los que vinieron de un archivo, que se borran por importación.
+ */
+const ORIGEN_FIJO = "fijo";
+
+/** Id estable: re-sincronizar no duplica ni pisa lo que ya estaba bien. */
+function idMovimientoFijo(fijoId: string, periodo: string): string {
+  return `fijo|${fijoId}|${periodo}`;
+}
+
+export async function listarGastosFijos(): Promise<GastoFijo[]> {
+  const filas = await db().gastosFijos.toArray();
+  return filas.sort((a, b) => b.monto - a.monto);
+}
+
+/**
+ * Materializa los gastos fijos como movimientos, uno por mes.
+ *
+ * Podrían vivir aparte y sumarse en cada cálculo, pero entonces habría que
+ * acordarse de sumarlos en el Sankey, en la torta, en la comparación mes a mes
+ * y en el detector de recurrencia — y cada lugar olvidado sería un número mal
+ * sin nada que lo delate. Como movimiento entran una vez y aparecen en todos
+ * lados por construcción.
+ *
+ * Solo se generan para los meses que ya importaste: el mes lo define el resumen
+ * del banco, no el calendario. Si no, aparecerían períodos con nada más que el
+ * alquiler adentro.
+ */
+export async function sincronizarGastosFijos(): Promise<number> {
+  const [fijos, todos] = await Promise.all([
+    db().gastosFijos.toArray(),
+    db().movimientos.toArray(),
+  ]);
+
+  const periodos = [
+    ...new Set(
+      todos.filter((m) => m.importacionId !== ORIGEN_FIJO).map((m) => m.periodo),
+    ),
+  ];
+
+  const deseados = new Map<string, Movimiento>();
+  for (const f of fijos) {
+    for (const p of periodos) {
+      if (p < f.desde) continue;
+      if (f.hasta !== null && p > f.hasta) continue;
+      const id = idMovimientoFijo(f.id, p);
+      deseados.set(id, {
+        id,
+        importacionId: ORIGEN_FIJO,
+        // El día no lo sabemos: es un gasto declarado, no una compra con
+        // fecha. Va al 1 y queda marcado como estimado.
+        fecha: `${p}-01`,
+        periodo: p,
+        fechaEstimada: true,
+        descripcionCruda: f.concepto,
+        claveComercio: clave(f.concepto),
+        comercio: f.concepto,
+        categoria: f.categoria,
+        subcategoria: f.subcategoria,
+        fuenteCategoria: "regla",
+        montoARS: f.monto,
+        montoUSD: null,
+        cuotaNro: null,
+        cuotaTotal: null,
+        nroTarjeta: null,
+        // Que ni un reimport ni `reclasificarTodo` le pisen la categoría que
+        // vos elegiste.
+        editadoManualmente: true,
+        excluido: false,
+      });
+    }
+  }
+
+  const previos = todos.filter((m) => m.importacionId === ORIGEN_FIJO);
+  const aBorrar = previos.filter((m) => !deseados.has(m.id)).map((m) => m.id);
+
+  await db().transaction("rw", db().movimientos, async () => {
+    if (aBorrar.length) await db().movimientos.bulkDelete(aBorrar);
+    if (deseados.size) await db().movimientos.bulkPut([...deseados.values()]);
+  });
+
+  return deseados.size;
+}
+
+export async function guardarGastoFijo(
+  gasto: Omit<GastoFijo, "id"> & { id?: string },
+): Promise<void> {
+  const id = gasto.id ?? `gf|${crypto.randomUUID()}`;
+  await db().gastosFijos.put({ ...gasto, id });
+  await sincronizarGastosFijos();
+}
+
+export async function borrarGastoFijo(id: string): Promise<void> {
+  await db().gastosFijos.delete(id);
+  await sincronizarGastosFijos();
 }
 
 /** Todos los períodos con datos, ascendente. */
@@ -232,15 +346,15 @@ export async function reclasificarTodo(): Promise<number> {
 // ---------- Respaldo: la red de seguridad del modelo local ----------
 
 export async function exportarJSON(): Promise<string> {
-  const [movimientos, importaciones, comercios, reglas, presupuestos, ingresos, config] =
+  const [movimientos, importaciones, comercios, reglas, presupuestos, ingresos, gastosFijos, config] =
     await Promise.all([
       db().movimientos.toArray(), db().importaciones.toArray(), db().comercios.toArray(),
       db().reglas.toArray(), db().presupuestos.toArray(),
-      db().ingresos.toArray(), db().config.toArray(),
+      db().ingresos.toArray(), db().gastosFijos.toArray(), db().config.toArray(),
     ]);
   return JSON.stringify(
-    { version: 2, exportado: new Date().toISOString(),
-      movimientos, importaciones, comercios, reglas, presupuestos, ingresos, config },
+    { version: 3, exportado: new Date().toISOString(),
+      movimientos, importaciones, comercios, reglas, presupuestos, ingresos, gastosFijos, config },
     null, 2,
   );
 }
@@ -257,7 +371,7 @@ export async function importarJSON(texto: string): Promise<{ ok: boolean; error?
   }
   await db().transaction("rw",
     [db().movimientos, db().importaciones, db().comercios, db().reglas, db().presupuestos,
-     db().ingresos, db().config],
+     db().ingresos, db().gastosFijos, db().config],
     async () => {
       await db().movimientos.bulkPut(data.movimientos as Movimiento[]);
       if (Array.isArray(data.importaciones)) await db().importaciones.bulkPut(data.importaciones as Importacion[]);
@@ -265,6 +379,7 @@ export async function importarJSON(texto: string): Promise<{ ok: boolean; error?
       if (Array.isArray(data.reglas)) await db().reglas.bulkPut(data.reglas as Regla[]);
       if (Array.isArray(data.presupuestos)) await db().presupuestos.bulkPut(data.presupuestos as never[]);
       if (Array.isArray(data.ingresos)) await db().ingresos.bulkPut(data.ingresos as IngresoManual[]);
+      if (Array.isArray(data.gastosFijos)) await db().gastosFijos.bulkPut(data.gastosFijos as GastoFijo[]);
       if (Array.isArray(data.config)) await db().config.bulkPut(data.config as Config[]);
     },
   );

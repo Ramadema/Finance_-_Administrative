@@ -84,6 +84,32 @@ export interface IngresoManual {
   origen: "manual" | "repetido";
 }
 
+/**
+ * Gasto fijo cargado a mano.
+ *
+ * El alquiler, la facultad y la prepaga no pasan por la tarjeta —salen por
+ * débito o transferencia— así que el resumen de BBVA no los ve. Sin esto, el
+ * "piso mensual" que muestra la app deja afuera justo los gastos más grandes y
+ * la capacidad de ahorro sale inflada.
+ *
+ * No es una categoría aparte: cada uno se guarda con su categoría real
+ * (alquiler → Servicios/Alquiler, facultad → Servicios/Educación). "Fijo" no se
+ * etiqueta, se detecta — y uno que se repite todos los meses con el mismo monto
+ * cae solo en el detector de recurrencia.
+ */
+export interface GastoFijo {
+  id: string;
+  /** "Alquiler", "Facultad". Es también el nombre que se ve en la tabla. */
+  concepto: string;
+  monto: number;
+  categoria: string;
+  subcategoria: string | null;
+  /** Primer período en que corre, "2026-06". */
+  desde: string;
+  /** Último período, o null si sigue vigente. */
+  hasta: string | null;
+}
+
 /** Metas y parámetros que el usuario configura. */
 export interface Config {
   clave: string;
@@ -109,6 +135,7 @@ export class FinanzasDB extends Dexie {
   presupuestos!: Table<Presupuesto, string>;
   ajustes!: Table<Ajuste, string>;
   ingresos!: Table<IngresoManual, string>;
+  gastosFijos!: Table<GastoFijo, string>;
   config!: Table<Config, string>;
 
   constructor() {
@@ -190,6 +217,19 @@ export class FinanzasDB extends Dexie {
         .modify((c) => {
           Object.assign(c, destino(c.clave));
         });
+    });
+
+    // v5: gastos fijos cargados a mano.
+    this.version(5).stores({
+      importaciones: "id, hashArchivo, periodo, fechaImport",
+      movimientos: "id, periodo, fecha, categoria, claveComercio, importacionId, excluido",
+      comercios: "clave, categoria",
+      reglas: "id, prioridad",
+      presupuestos: "id, categoria",
+      ajustes: "clave",
+      ingresos: "id, periodo",
+      config: "clave",
+      gastosFijos: "id, categoria, desde",
     });
   }
 }

@@ -4,6 +4,8 @@ import { useDatos } from "@/lib/DatosContext";
 import { CategoriasInteractivas } from "@/components/charts/CategoriasInteractivas";
 import { Calendario } from "@/components/charts/Calendario";
 import { Waterfall } from "@/components/charts/Waterfall";
+import { Torta } from "@/components/charts/Torta";
+import { ComparacionMeses } from "@/components/charts/ComparacionMeses";
 import { TopComercios } from "@/components/TopComercios";
 import { Cuotas } from "@/components/charts/Cuotas";
 import { Card, CardHead } from "@/components/ui/Card";
@@ -18,6 +20,24 @@ export default function Gastos() {
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHead
+            titulo="Cómo se reparte el mes"
+            sub={`${nombrePeriodo(d.periodo)} · cuánto pesa cada categoría sobre el total`}
+          />
+          <Torta datos={d.categorias} />
+        </Card>
+
+        <Card>
+          <CardHead
+            titulo="Mes contra mes"
+            sub="Los mismos rubros, para ver dónde cambió de verdad"
+          />
+          <ComparacionMeses porPeriodo={d.categoriasPorPeriodo} periodos={d.periodos} />
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-5">
         <Card className="lg:col-span-3">
           <CardHead
