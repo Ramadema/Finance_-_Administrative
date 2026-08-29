@@ -35,6 +35,8 @@ export const SEMILLA: readonly EntradaSemilla[] = [
   { patron: "MAXICONSUMO", comercio: "Maxiconsumo", categoria: "supermercado", subcategoria: "Supermercado" },
   { patron: "VERDULERIA", comercio: "Verdulería", categoria: "supermercado", subcategoria: "Almacén y verdulería" },
   { patron: "CARNICERIA", comercio: "Carnicería", categoria: "supermercado", subcategoria: "Almacén y verdulería" },
+  { patron: "FIAMBRE", comercio: "Fiambrería", categoria: "supermercado", subcategoria: "Almacén y verdulería" },
+  { patron: "PANADERIA", comercio: "Panadería", categoria: "supermercado", subcategoria: "Almacén y verdulería" },
   { patron: "PUPPIS", comercio: "Puppis", categoria: "supermercado", subcategoria: "Mascotas" },
   { patron: "VETERINARIA", comercio: "Veterinaria", categoria: "supermercado", subcategoria: "Mascotas" },
 
@@ -46,6 +48,7 @@ export const SEMILLA: readonly EntradaSemilla[] = [
   { patron: "UBER EATS", comercio: "Uber Eats", categoria: "gastronomia", subcategoria: "Delivery" },
   { patron: "MCDONALDS", comercio: "McDonald's", categoria: "gastronomia", subcategoria: "Restaurantes" },
   { patron: "ARCOS DORADOS", comercio: "McDonald's", categoria: "gastronomia", subcategoria: "Restaurantes" },
+  { patron: "ARCOSDORADOS", comercio: "McDonald's", categoria: "gastronomia", subcategoria: "Restaurantes" },
   { patron: "BURGER KING", comercio: "Burger King", categoria: "gastronomia", subcategoria: "Restaurantes" },
   { patron: "MOSTAZA", comercio: "Mostaza", categoria: "gastronomia", subcategoria: "Restaurantes" },
   { patron: "SUBWAY", comercio: "Subway", categoria: "gastronomia", subcategoria: "Restaurantes" },
@@ -58,6 +61,8 @@ export const SEMILLA: readonly EntradaSemilla[] = [
   { patron: "FREDDO", comercio: "Freddo", categoria: "gastronomia", subcategoria: "Cafés y bares" },
   { patron: "PIZZERIA", comercio: "Pizzería", categoria: "gastronomia", subcategoria: "Restaurantes" },
   { patron: "PARRILLA", comercio: "Parrilla", categoria: "gastronomia", subcategoria: "Restaurantes" },
+  { patron: "TRATTORIA", comercio: "Trattoria", categoria: "gastronomia", subcategoria: "Restaurantes" },
+  { patron: "ROTISERIA", comercio: "Rotisería", categoria: "gastronomia", subcategoria: "Restaurantes" },
   { patron: "KIOSCO", comercio: "Kiosco", categoria: "gastronomia", subcategoria: "Kiosco" },
 
   // ---------- Transporte ----------
@@ -71,6 +76,8 @@ export const SEMILLA: readonly EntradaSemilla[] = [
   { patron: "CABIFY", comercio: "Cabify", categoria: "transporte", subcategoria: "Apps de viaje" },
   { patron: "DIDI", comercio: "DiDi", categoria: "transporte", subcategoria: "Apps de viaje" },
   { patron: "SUBE", comercio: "SUBE", categoria: "transporte", subcategoria: "SUBE y transporte público" },
+  { patron: "EMOVA", comercio: "Subte", categoria: "transporte", subcategoria: "SUBE y transporte público" },
+  { patron: "SUBTE", comercio: "Subte", categoria: "transporte", subcategoria: "SUBE y transporte público" },
   { patron: "AUSA", comercio: "AUSA", categoria: "transporte", subcategoria: "Peajes y cochera" },
   { patron: "AUBASA", comercio: "AUBASA", categoria: "transporte", subcategoria: "Peajes y cochera" },
   { patron: "TELEPASE", comercio: "Telepase", categoria: "transporte", subcategoria: "Peajes y cochera" },
@@ -111,6 +118,7 @@ export const SEMILLA: readonly EntradaSemilla[] = [
   { patron: "MICROSOFT", comercio: "Microsoft", categoria: "servicios", subcategoria: "Software" },
   { patron: "ADOBE", comercio: "Adobe", categoria: "servicios", subcategoria: "Software" },
   { patron: "OPENAI", comercio: "OpenAI", categoria: "servicios", subcategoria: "Software" },
+  { patron: "CURSOR", comercio: "Cursor", categoria: "servicios", subcategoria: "Software" },
   { patron: "ANTHROPIC", comercio: "Anthropic", categoria: "servicios", subcategoria: "Software" },
   { patron: "GITHUB", comercio: "GitHub", categoria: "servicios", subcategoria: "Software" },
   { patron: "NOTION", comercio: "Notion", categoria: "servicios", subcategoria: "Software" },
@@ -182,6 +190,10 @@ export const SEMILLA: readonly EntradaSemilla[] = [
 
   // ---------- Impuestos y bancarios ----------
   { patron: "PERCEPCION", comercio: "Percepción", categoria: "financiero", subcategoria: "Percepciones" },
+  { patron: "PERC IB", comercio: "Percepción Ingresos Brutos", categoria: "financiero", subcategoria: "Percepciones" },
+  { patron: "CR RG", comercio: "Devolución de percepción", categoria: "financiero", subcategoria: "Percepciones" },
+  { patron: "PAGO ERRONEO", comercio: "Ajuste del banco", categoria: "financiero" },
+  { patron: "DEVOLUCION", comercio: "Devolución", categoria: "financiero" },
   { patron: "IMPUESTO", comercio: "Impuesto", categoria: "financiero", subcategoria: "Impuestos" },
   { patron: "IVA", comercio: "IVA", categoria: "financiero", subcategoria: "Impuestos" },
   { patron: "INGRESOS BRUTOS", comercio: "Ingresos Brutos", categoria: "financiero", subcategoria: "Impuestos" },

@@ -11,7 +11,10 @@ import { perfilarRecurrencia, indiceNaturaleza, type Naturaleza, type Movimiento
 
 export interface ResumenPeriodo {
   periodo: string;
+  /** Ingresos detectados en los movimientos + los que cargaste a mano. */
   ingresos: number;
+  /** Solo la parte cargada a mano, para poder mostrar de dónde sale el número. */
+  ingresosManuales: number;
   gastos: number;
   ahorro: number;
   /** ingresos − gastos − ahorro. Lo que te queda libre. */
@@ -62,6 +65,7 @@ export function resumenDe(
   movimientos: readonly Movimiento[],
   periodo: string,
   naturalezas: ReadonlyMap<string, Naturaleza>,
+  ingresosManuales = 0,
 ): ResumenPeriodo {
   const delMes = activos(movimientos).filter((m) => m.periodo === periodo);
 
@@ -73,18 +77,24 @@ export function resumenDe(
     if (clase === "ingreso") ingresos += Math.abs(m.montoARS);
     else if (clase === "ahorro") ahorro += Math.abs(m.montoARS);
     else if (clase === "gasto") {
-      const monto = Math.abs(m.montoARS);
+      // Con signo, a propósito: en el resumen de tarjeta una devolución viene
+      // negativa. Pasarla por Math.abs la contaba como gasto y te inflaba el
+      // mes justo cuando el banco te había devuelto la plata.
+      const monto = m.montoARS;
       gastos += monto;
-      gastosUSD += Math.abs(m.montoUSD ?? 0);
+      gastosUSD += (m.montoUSD ?? 0);
       reparto[naturalezas.get(m.claveComercio) ?? "esporadico"] += monto;
       if (m.categoria === "sin_categoria") sinCategorizar++;
     }
     // clase "interno" se ignora a propósito: sumarla contaría el mes dos veces.
   }
 
+  ingresos += ingresosManuales;
+
   return {
     periodo,
     ingresos,
+    ingresosManuales,
     gastos,
     ahorro,
     sobrante: ingresos - gastos - ahorro,
@@ -115,7 +125,7 @@ export function gastoPorCategoria(
   const acum = new Map<string, { monto: number; cantidad: number }>();
   for (const m of rel) {
     const e = acum.get(m.categoria) ?? { monto: 0, cantidad: 0 };
-    e.monto += Math.abs(m.montoARS);
+    e.monto += m.montoARS;
     e.cantidad++;
     acum.set(m.categoria, e);
   }
@@ -183,7 +193,7 @@ export function flujoSankey(
   for (const m of delMes) {
     if (claseDe(m) !== "gasto") continue;
     const nat = naturalezas.get(m.claveComercio) ?? "esporadico";
-    const monto = Math.abs(m.montoARS);
+    const monto = m.montoARS;
     if (!cruce.has(nat)) cruce.set(nat, new Map());
     const porCat = cruce.get(nat)!;
     porCat.set(m.categoria, (porCat.get(m.categoria) ?? 0) + monto);
@@ -279,11 +289,22 @@ export function serieMensual(
   movimientos: readonly Movimiento[],
   periodos: readonly string[],
   naturalezas: ReadonlyMap<string, Naturaleza>,
+  ingresosPorPeriodo?: ReadonlyMap<string, number>,
 ): ResumenPeriodo[] {
-  return periodos.map((p) => resumenDe(movimientos, p, naturalezas));
+  return periodos.map((p) =>
+    resumenDe(movimientos, p, naturalezas, ingresosPorPeriodo?.get(p) ?? 0),
+  );
 }
 
-/** Gasto por día del mes, para el heatmap. */
+/**
+ * Gasto por día del mes, para el heatmap.
+ *
+ * Solo entran los consumos cuya FECHA DE COMPRA cae dentro del mes. Un resumen
+ * también te cobra cuotas de compras viejas —la cuota 3/12 de una compra de
+ * mayo llega en el resumen de julio— y esas no tienen día en la grilla de
+ * julio. Se cuentan en el total del mes, no en el calendario; `gastoFueraDelMes`
+ * devuelve cuánto quedó afuera para poder decirlo en pantalla.
+ */
 export function gastoDiario(
   movimientos: readonly Movimiento[],
   periodo: string,
@@ -291,9 +312,26 @@ export function gastoDiario(
   const out = new Map<string, number>();
   for (const m of activos(movimientos)) {
     if (m.periodo !== periodo || claseDe(m) !== "gasto") continue;
-    out.set(m.fecha, (out.get(m.fecha) ?? 0) + Math.abs(m.montoARS));
+    if (!m.fecha.startsWith(periodo)) continue;
+    out.set(m.fecha, (out.get(m.fecha) ?? 0) + m.montoARS);
   }
   return out;
+}
+
+/** Lo que el resumen cobra este mes pero se compró en otro (cuotas y ajustes). */
+export function gastoFueraDelMes(
+  movimientos: readonly Movimiento[],
+  periodo: string,
+): { monto: number; cantidad: number } {
+  let monto = 0;
+  let cantidad = 0;
+  for (const m of activos(movimientos)) {
+    if (m.periodo !== periodo || claseDe(m) !== "gasto") continue;
+    if (m.fecha.startsWith(periodo)) continue;
+    monto += m.montoARS;
+    cantidad++;
+  }
+  return { monto, cantidad };
 }
 
 export interface CuotaFutura {
@@ -302,33 +340,63 @@ export interface CuotaFutura {
   detalle: { comercio: string; cuota: string; monto: number }[];
 }
 
+/** "2026-06" + 2 → "2026-08". Negativo va para atrás. */
+export function desplazarPeriodo(periodo: string, meses: number): string {
+  const [anio, mes] = periodo.split("-").map(Number);
+  const d = new Date(anio, mes - 1 + meses, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 /**
- * Cuánto de los meses que vienen YA está comprometido en cuotas.
+ * Cuánto de los meses que VIENEN ya está comprometido en cuotas.
  *
- * Cada compra en cuotas proyecta las que faltan hacia adelante. Es el número
- * que nadie mira y explica por qué el resumen del mes que viene "vino caro".
+ * Es el número que nadie mira y explica por qué el resumen del mes que viene
+ * "vino caro". Dos trampas, las dos visibles recién con varios resúmenes
+ * importados:
+ *
+ * 1. Una misma compra aparece en todos los resúmenes hasta que se termina de
+ *    pagar (2/12 en junio, 3/12 en julio). Proyectar desde cada aparición
+ *    contaba la compra una vez por resumen: en agosto salían dos cuotas 4/12
+ *    del mismo comercio y el total comprometido quedaba inflado.
+ *    Se agrupa por PLAN —comercio + cantidad de cuotas + mes de la cuota 1— y
+ *    se proyecta solo desde la aparición más reciente.
+ * 2. Un mes que ya importaste no es compromiso futuro: esa cuota ya está
+ *    contada como gasto real de ese mes. Solo se proyecta más allá del último
+ *    resumen que tenés.
  */
 export function cuotasComprometidas(
   movimientos: readonly Movimiento[],
   mesesAdelante = 6,
 ): CuotaFutura[] {
-  const futuro = new Map<string, CuotaFutura>();
+  const lista = activos(movimientos);
+  const ultimoPeriodo = lista.reduce((a, m) => (m.periodo > a ? m.periodo : a), "");
+  if (!ultimoPeriodo) return [];
+  const limite = desplazarPeriodo(ultimoPeriodo, mesesAdelante);
 
-  for (const m of activos(movimientos)) {
+  // Identidad del plan de cuotas. Sin el monto a propósito: si el banco ajusta
+  // la cuota, incluirlo partiría el plan en dos y volvería el doble conteo.
+  const planes = new Map<string, Movimiento>();
+  for (const m of lista) {
     if (m.cuotaNro === null || m.cuotaTotal === null) continue;
-    const restantes = m.cuotaTotal - m.cuotaNro;
-    if (restantes <= 0) continue;
+    if (m.cuotaTotal - m.cuotaNro <= 0) continue;
+    const primeraCuota = desplazarPeriodo(m.periodo, -(m.cuotaNro - 1));
+    const clave = `${m.claveComercio}|${m.cuotaTotal}|${primeraCuota}`;
+    const previo = planes.get(clave);
+    if (!previo || m.periodo > previo.periodo) planes.set(clave, m);
+  }
 
-    const [anio, mes] = m.periodo.split("-").map(Number);
-    for (let i = 1; i <= Math.min(restantes, mesesAdelante); i++) {
-      const d = new Date(anio, mes - 1 + i, 1);
-      const per = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const futuro = new Map<string, CuotaFutura>();
+  for (const m of planes.values()) {
+    const restantes = m.cuotaTotal! - m.cuotaNro!;
+    for (let i = 1; i <= restantes; i++) {
+      const per = desplazarPeriodo(m.periodo, i);
+      if (per <= ultimoPeriodo || per > limite) continue;
       const e = futuro.get(per) ?? { periodo: per, monto: 0, detalle: [] };
-      e.monto += Math.abs(m.montoARS);
+      e.monto += m.montoARS;
       e.detalle.push({
         comercio: m.comercio,
-        cuota: `${m.cuotaNro + i}/${m.cuotaTotal}`,
-        monto: Math.abs(m.montoARS),
+        cuota: `${m.cuotaNro! + i}/${m.cuotaTotal}`,
+        monto: m.montoARS,
       });
       futuro.set(per, e);
     }
@@ -375,3 +443,81 @@ export function variacionPorCategoria(
 }
 
 export { CATEGORIAS };
+
+export interface GastoPorComercio {
+  claveComercio: string;
+  comercio: string;
+  monto: number;
+  cantidad: number;
+  porcentaje: number;
+  ticketPromedio: number;
+}
+
+/**
+ * Comercios dentro de una categoría, para el drill-down.
+ * Responde "¿en qué se me fueron los $236k de salud?" — que es la pregunta
+ * que sigue naturalmente a ver la barra.
+ */
+export function comerciosDeCategoria(
+  movimientos: readonly Movimiento[],
+  periodo: string | null,
+  categoriaId: string,
+): GastoPorComercio[] {
+  const rel = activos(movimientos).filter(
+    (m) =>
+      (periodo === null || m.periodo === periodo) &&
+      m.categoria === categoriaId &&
+      claseDe(m) === "gasto",
+  );
+
+  const acum = new Map<string, { comercio: string; monto: number; cantidad: number }>();
+  for (const m of rel) {
+    const e = acum.get(m.claveComercio) ?? { comercio: m.comercio, monto: 0, cantidad: 0 };
+    e.monto += m.montoARS;
+    e.cantidad++;
+    acum.set(m.claveComercio, e);
+  }
+
+  const total = [...acum.values()].reduce((a, e) => a + e.monto, 0);
+  return [...acum.entries()]
+    .filter(([, e]) => e.monto > 0)
+    .map(([clave, e]) => ({
+      claveComercio: clave,
+      comercio: e.comercio,
+      monto: e.monto,
+      cantidad: e.cantidad,
+      porcentaje: total > 0 ? (e.monto / total) * 100 : 0,
+      ticketPromedio: e.monto / e.cantidad,
+    }))
+    .sort((a, b) => b.monto - a.monto);
+}
+
+/** Top comercios del mes, sin importar la categoría. */
+export function topComercios(
+  movimientos: readonly Movimiento[],
+  periodo: string | null,
+  limite = 10,
+): (GastoPorComercio & { categoriaId: string })[] {
+  const rel = activos(movimientos).filter(
+    (m) => (periodo === null || m.periodo === periodo) && claseDe(m) === "gasto",
+  );
+  const acum = new Map<string, { comercio: string; categoriaId: string; monto: number; cantidad: number }>();
+  for (const m of rel) {
+    const e = acum.get(m.claveComercio) ??
+      { comercio: m.comercio, categoriaId: m.categoria, monto: 0, cantidad: 0 };
+    e.monto += m.montoARS;
+    e.cantidad++;
+    acum.set(m.claveComercio, e);
+  }
+  const total = [...acum.values()].reduce((a, e) => a + e.monto, 0);
+  return [...acum.entries()]
+    .filter(([, e]) => e.monto > 0)
+    .map(([clave, e]) => ({
+      claveComercio: clave, comercio: e.comercio, categoriaId: e.categoriaId,
+      monto: e.monto, cantidad: e.cantidad,
+      porcentaje: total > 0 ? (e.monto / total) * 100 : 0,
+      ticketPromedio: e.monto / e.cantidad,
+    }))
+    .sort((a, b) => b.monto - a.monto)
+    .slice(0, limite);
+}

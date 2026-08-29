@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingUp, Repeat } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { formatARS } from "@/lib/ingest/numero";
 import { colorSerie } from "@/lib/design/paleta";
 import { categoria as buscarCategoria } from "@/lib/categorize/categorias";
@@ -78,10 +78,6 @@ export function Suscripciones({ perfiles }: { perfiles: PerfilRecurrencia[] }) {
         })}
       </ul>
 
-      <p className="mt-3 flex items-center gap-1.5 text-[11.5px]" style={{ color: "var(--ink-mudo)" }}>
-        <Repeat className="h-3 w-3" />
-        Detectados solos: aparecen casi todos los meses con monto estable.
-      </p>
     </div>
   );
 }

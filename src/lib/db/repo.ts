@@ -1,4 +1,5 @@
-import { db, type Movimiento, type Importacion, type ComercioMemorizado } from "./esquema";
+import { db, type Movimiento, type Importacion, type ComercioMemorizado,
+         type IngresoManual, type Config } from "./esquema";
 import { parsearBBVATarjeta } from "../ingest/bbva-xls";
 import { asignarIds, hashArchivo, fechaISO, periodoDe } from "../ingest/dedupe";
 import { clasificar, type EntradaMemoria, type Regla } from "../categorize/motor";
@@ -60,7 +61,12 @@ export async function importarArchivo(archivo: File): Promise<ResultadoImport> {
       id: ids[i],
       importacionId: hash,
       fecha: fechaISO(m.fecha),
-      periodo: periodoDe(m.fecha),
+      // El período sale del RESUMEN, no de la fecha de compra. Si se usara la
+      // fecha, las cuotas de una compra de mayo caerían todas en mayo: mayo
+      // saldría con la compra repetida una vez por resumen importado, y los
+      // meses que realmente las pagan saldrían en cero.
+      periodo: parseo.periodo ?? periodoDe(m.fecha),
+      fechaEstimada: m.fechaEstimada,
       descripcionCruda: m.establecimiento,
       claveComercio: c.claveComercio,
       comercio: c.comercio,
@@ -201,13 +207,15 @@ export async function reclasificarTodo(): Promise<number> {
 // ---------- Respaldo: la red de seguridad del modelo local ----------
 
 export async function exportarJSON(): Promise<string> {
-  const [movimientos, importaciones, comercios, reglas, presupuestos] = await Promise.all([
-    db().movimientos.toArray(), db().importaciones.toArray(), db().comercios.toArray(),
-    db().reglas.toArray(), db().presupuestos.toArray(),
-  ]);
+  const [movimientos, importaciones, comercios, reglas, presupuestos, ingresos, config] =
+    await Promise.all([
+      db().movimientos.toArray(), db().importaciones.toArray(), db().comercios.toArray(),
+      db().reglas.toArray(), db().presupuestos.toArray(),
+      db().ingresos.toArray(), db().config.toArray(),
+    ]);
   return JSON.stringify(
-    { version: 1, exportado: new Date().toISOString(),
-      movimientos, importaciones, comercios, reglas, presupuestos },
+    { version: 2, exportado: new Date().toISOString(),
+      movimientos, importaciones, comercios, reglas, presupuestos, ingresos, config },
     null, 2,
   );
 }
@@ -223,13 +231,16 @@ export async function importarJSON(texto: string): Promise<{ ok: boolean; error?
     return { ok: false, error: "No parece un respaldo de esta app." };
   }
   await db().transaction("rw",
-    [db().movimientos, db().importaciones, db().comercios, db().reglas, db().presupuestos],
+    [db().movimientos, db().importaciones, db().comercios, db().reglas, db().presupuestos,
+     db().ingresos, db().config],
     async () => {
       await db().movimientos.bulkPut(data.movimientos as Movimiento[]);
       if (Array.isArray(data.importaciones)) await db().importaciones.bulkPut(data.importaciones as Importacion[]);
       if (Array.isArray(data.comercios)) await db().comercios.bulkPut(data.comercios as ComercioMemorizado[]);
       if (Array.isArray(data.reglas)) await db().reglas.bulkPut(data.reglas as Regla[]);
       if (Array.isArray(data.presupuestos)) await db().presupuestos.bulkPut(data.presupuestos as never[]);
+      if (Array.isArray(data.ingresos)) await db().ingresos.bulkPut(data.ingresos as IngresoManual[]);
+      if (Array.isArray(data.config)) await db().config.bulkPut(data.config as Config[]);
     },
   );
   return { ok: true };
@@ -237,12 +248,101 @@ export async function importarJSON(texto: string): Promise<{ ok: boolean; error?
 
 export async function borrarTodo(): Promise<void> {
   await db().transaction("rw",
-    [db().movimientos, db().importaciones, db().comercios, db().reglas, db().presupuestos],
+    [db().movimientos, db().importaciones, db().comercios, db().reglas, db().presupuestos,
+     db().ingresos, db().config],
     async () => {
       await Promise.all([
         db().movimientos.clear(), db().importaciones.clear(), db().comercios.clear(),
         db().reglas.clear(), db().presupuestos.clear(),
+        db().ingresos.clear(), db().config.clear(),
       ]);
     },
   );
+}
+
+// ---------- Ingresos manuales ----------
+
+/**
+ * El resumen de tarjeta no trae ingresos, así que se cargan a mano. Sin esto
+ * la app calcula cuánto gastás pero no cuánto te sobra.
+ */
+export async function ingresosDe(periodo: string): Promise<IngresoManual[]> {
+  const filas = await db().ingresos.where("periodo").equals(periodo).toArray();
+  return filas.sort((a, b) => b.monto - a.monto);
+}
+
+export async function todosLosIngresos(): Promise<IngresoManual[]> {
+  return db().ingresos.toArray();
+}
+
+/** Total de ingresos por período, para no recalcular en cada gráfico. */
+export async function mapaIngresos(): Promise<Map<string, number>> {
+  const filas = await db().ingresos.toArray();
+  const m = new Map<string, number>();
+  for (const f of filas) m.set(f.periodo, (m.get(f.periodo) ?? 0) + f.monto);
+  return m;
+}
+
+export async function guardarIngreso(
+  ingreso: Omit<IngresoManual, "id"> & { id?: string },
+): Promise<string> {
+  const id = ingreso.id ?? `${ingreso.periodo}|${ingreso.concepto}|${crypto.randomUUID()}`;
+  await db().ingresos.put({ ...ingreso, id });
+  return id;
+}
+
+export async function borrarIngreso(id: string): Promise<void> {
+  await db().ingresos.delete(id);
+}
+
+/**
+ * Copia los ingresos de un mes hacia los siguientes.
+ *
+ * No pisa lo que ya cargaste a mano: solo completa los meses que no tienen ese
+ * concepto. Así "mi sueldo es el mismo" se carga una vez, pero el mes que
+ * cobraste el aguinaldo no se te sobrescribe.
+ */
+export async function repetirIngresosHacia(
+  periodoOrigen: string,
+  periodosDestino: readonly string[],
+): Promise<number> {
+  const origen = await ingresosDe(periodoOrigen);
+  if (origen.length === 0) return 0;
+
+  const nuevos: IngresoManual[] = [];
+  for (const destino of periodosDestino) {
+    if (destino === periodoOrigen) continue;
+    const yaHay = await db().ingresos.where("periodo").equals(destino).toArray();
+    const conceptos = new Set(yaHay.map((i) => i.concepto.toLowerCase()));
+    for (const i of origen) {
+      if (conceptos.has(i.concepto.toLowerCase())) continue;
+      nuevos.push({
+        id: `${destino}|${i.concepto}|${crypto.randomUUID()}`,
+        periodo: destino,
+        concepto: i.concepto,
+        monto: i.monto,
+        origen: "repetido",
+      });
+    }
+  }
+  if (nuevos.length) await db().ingresos.bulkPut(nuevos);
+  return nuevos.length;
+}
+
+// ---------- Configuración ----------
+
+export async function leerConfig<T extends Config["valor"]>(
+  clave: string, porDefecto: T,
+): Promise<T> {
+  const fila = await db().config.get(clave);
+  return (fila?.valor as T) ?? porDefecto;
+}
+
+export async function guardarConfig(clave: string, valor: Config["valor"]): Promise<void> {
+  await db().config.put({ clave, valor });
+}
+
+export async function todaLaConfig(): Promise<Map<string, Config["valor"]>> {
+  const filas = await db().config.toArray();
+  return new Map(filas.map((f) => [f.clave, f.valor]));
 }

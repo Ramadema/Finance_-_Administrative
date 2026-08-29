@@ -11,6 +11,7 @@ function m(desc: string, dia: number, monto: number): MovimientoCrudo {
     cuotaTotal: null,
     importeARS: monto,
     importeUSD: null,
+    fechaEstimada: false,
   };
 }
 

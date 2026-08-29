@@ -23,12 +23,16 @@ de descarga del encabezado — si limpiás los datos del navegador, se van.
 ```bash
 npm install
 npm run dev          # http://localhost:3000
-npm test             # 86 tests
+npm test             # 150 tests
 npm run build        # export estático a ./out
 ```
 
-En `samples/` hay 4 meses de datos de demo con el formato exacto de BBVA para
-probar sin usar tus datos reales.
+La app arranca vacía. Los únicos datos que muestra son los de los archivos que
+vos importás — no hay data de ejemplo precargada ni valores por defecto.
+
+`samples/` es donde dejás tus `.xls` del banco: `.gitignore` los bloquea, así
+que nunca se suben al repo. Si están, `npm test` corre además una tanda de
+regresión contra ellos; si no, esa tanda se saltea sola.
 
 ## Deploy
 
@@ -42,6 +46,17 @@ npx vercel            # o conectá el repo desde vercel.com
 Al ser archivos estáticos también se puede hostear en GitHub Pages, Netlify o
 Cloudflare Pages sin tocar una línea.
 
+## Secciones
+
+| Sección | Qué responde |
+|---|---|
+| **Resumen** | Cuánto gastaste, cuánto te sobra, a dónde se fue (Sankey), evolución y composición |
+| **Gastos** | En qué categorías y comercios, día por día, qué cambió contra el mes anterior |
+| **Fijos** | Qué gastos se repiten todos los meses, cuáles aumentaron, qué cuotas debés |
+| **Ahorro** | Cargás tus ingresos → capacidad de ahorro, proyección a 12 meses, simulador de recorte, fondo de emergencia |
+| **Alertas** | Observaciones automáticas sobre tu propio historial |
+| **Movimientos** | El detalle auditable; acá categorizás lo que quedó suelto |
+
 ## Cómo está armado
 
 ```
@@ -53,7 +68,10 @@ src/lib/categorize/   Categorización sin LLM, en cascada
   semilla.ts            ~180 comercios argentinos precargados
   motor.ts              reglas → memoria → semilla → sin categorizar
   recurrencia.ts        detecta fijos y suscripciones solo
-src/lib/analisis/     Métricas del dashboard
+src/lib/analisis/     Métricas, capacidad de ahorro y motor de observaciones
+  metricas.ts           agregados, Sankey, cuotas, drill-down por comercio
+  ahorro.ts             capacidad, proyección, fondo de emergencia, escenarios
+  insights.ts           reglas de observación
 src/lib/db/           IndexedDB (Dexie) detrás de un repositorio
 src/lib/design/       Paleta validada para daltonismo y contraste
 ```
@@ -74,6 +92,48 @@ casi todos los meses con monto planchado. La métrica es la fracción de meses
 sin cambio, no el desvío estándar — así una suscripción que aumenta de precio
 sigue siendo una suscripción, que es justo cuando querés la alerta.
 
+**El mes de un gasto es el del resumen, no el de la compra.** BBVA repite la
+fecha de la compra original en cada cuota: la cuota 3/12 de algo comprado el
+14/05 llega fechada 14/05 en el resumen de julio. Agrupando por fecha de compra,
+mayo acumulaba la misma compra una vez por resumen importado y los meses que
+realmente la pagan salían en cero. Cada movimiento guarda las dos cosas: `fecha`
+es cuándo compraste, `periodo` es qué resumen te lo cobra.
+
+**El período sale del contenido, no del nombre del archivo.** La hoja se llama
+`Mov_Periodo_29-08-2026`, que es la fecha de descarga: dos resúmenes distintos
+bajados el mismo día traen el mismo nombre y colapsaban en un solo mes. El
+período es el mes donde cae la mayoría de los consumos, que además es como uno
+los llama ("el resumen de junio").
+
+**Lo que ya importaste no es compromiso futuro.** Una compra en cuotas aparece
+en todos los resúmenes hasta que se termina de pagar. Proyectar desde cada
+aparición contaba la misma compra una vez por resumen — dos cuotas 4/12 del
+mismo comercio en agosto. Las cuotas se agrupan por plan (comercio + cantidad de
+cuotas + mes de la primera) y se proyectan solo desde la más reciente, y solo
+más allá del último resumen que tenés.
+
+**Los importes llevan signo.** El resumen trae devoluciones en negativo y su
+suma aritmética da el total declarado. Pasarlas por `Math.abs()` las convertía
+en gasto: te inflaba el mes justo cuando el banco te había devuelto la plata.
+
+**Una tarjeta se sabe por dónde termina, no por la fila.** La columna
+"Nro. Tarjeta" viene vacía en cada consumo; el número aparece recién en la fila
+`Total Tarjeta Nro ****XXXX` que cierra la sección. Cada subtotal se valida
+contra sus propios movimientos, aparte del checksum general.
+
+**01/01/0001 no es una fecha.** Es el hueco que deja BBVA en ajustes y
+devoluciones. Leída literal generaba un mes fantasma de 2001 en el selector.
+Esos movimientos toman la fecha de cierre del resumen y quedan marcados con
+`fechaEstimada`.
+
+**El id de operación no es parte del nombre del comercio.** "CURSOR, AI POWER
+in1Tm5auB4TZW" cambia de id todos los meses. Sin sacarlo, el mismo comercio
+generaba una clave distinta cada mes: la memoria no aprendía y una suscripción
+mensual nunca se detectaba como gasto fijo. Cuando la semilla acierta, además,
+la clave pasa a ser el nombre canónico — BBVA trunca el campo distinto cada mes
+("MICROSOFT*PC GAME PASS" vs "Microsoft*PC Gam Microsoft*PC") y si no serían dos
+comercios.
+
 **Los movimientos internos no son gasto.** El pago de la tarjeta aparece como
 débito en el resumen de cuenta y sus consumos en el de tarjeta. Sumar ambos
 duplicaría el mes entero, así que las transferencias propias van a una clase
@@ -81,6 +141,30 @@ aparte que no computa.
 
 **La descripción cruda del banco nunca se pisa.** Todo lo derivado (comercio,
 categoría, naturaleza) se puede recalcular sin volver a subir nada.
+
+**Ninguna observación sin un número que la respalde.** "Cuidá tus gastos" es
+ruido. "Gastronomía está 61% arriba de tu promedio, son $19.569 de más" es
+accionable. Si una regla no tiene datos suficientes para calcular la
+comparación, no se dispara.
+
+**Las observaciones no recomiendan instrumentos de inversión.** La sección de
+Ahorro calcula cuánta plata te queda libre y qué pasaría si recortaras un gasto
+— aritmética sobre tus propios datos. Dónde poner esa plata depende de tu
+situación completa y de tu tolerancia al riesgo, y corresponde a un asesor
+matriculado; el código no opina sobre eso a propósito.
+
+### Sobre los datos
+
+La app **nunca inventa un número**. Todo lo que ves sale de un archivo que
+importaste: no hay datos de ejemplo, ni valores por defecto, ni estimaciones que
+rellenen un hueco. Si falta un dato, la métrica muestra "—" y dice qué hace
+falta cargar.
+
+Los tests sí construyen planillas sintéticas en memoria (`xlsFalso(...)` en
+`bbva-xls.test.ts`). Eso es distinto: sirven para verificar casos que un archivo
+real no te da — una fecha imposible como 31/02, las columnas cambiadas de orden,
+un archivo corrupto, un total que no cuadra. Nunca tocan la base de la app ni
+salen del proceso de test.
 
 ### Limitaciones conocidas
 

@@ -39,3 +39,18 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Resúmenes bancarios: NUNCA al repo.
+# Son datos financieros personales y este remote es público.
+# Dejá tus .xls/.pdf del banco en samples/ tranquilo: git los ignora.
+samples/*.xls
+samples/*.xlsx
+samples/*.pdf
+samples/*.csv
+# Excepción: el export vacío de BBVA, que solo tiene encabezados y sirve de
+# referencia del formato. No contiene ningún movimiento.
+!samples/bbva-tarjeta-vacio.xls
+
+# Respaldos exportados desde la app
+*-respaldo-*.json
+plata-respaldo-*.json

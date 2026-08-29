@@ -5,7 +5,7 @@ import type { Movimiento } from "../db/esquema";
 function mv(p: Partial<Movimiento>): Movimiento {
   return {
     id: Math.random().toString(36), importacionId: "i1",
-    fecha: "2026-08-05", periodo: "2026-08",
+    fecha: "2026-08-05", periodo: "2026-08", fechaEstimada: false,
     descripcionCruda: "X", claveComercio: "X", comercio: "X",
     categoria: "supermercado", subcategoria: null, fuenteCategoria: "semilla",
     montoARS: 1000, montoUSD: null, cuotaNro: null, cuotaTotal: null,
@@ -112,6 +112,34 @@ describe("cuotasComprometidas", () => {
     expect(f[0].monto).toBe(25000);
     expect(f[0].detalle[0].cuota).toBe("4/12");
     expect(f).toHaveLength(6); // tope por defecto
+  });
+
+  it("una compra que aparece en dos resúmenes se cuenta UNA vez", () => {
+    // El mismo plan de 12 cuotas visto desde junio (2/12) y desde julio (3/12).
+    // Proyectar desde cada aparición ponía dos cuotas 4/12 en agosto.
+    const f = cuotasComprometidas([
+      mv({ periodo: "2026-06", claveComercio: "ZENTRA", comercio: "Zentra",
+           montoARS: 52316.66, cuotaNro: 2, cuotaTotal: 12 }),
+      mv({ periodo: "2026-07", claveComercio: "ZENTRA", comercio: "Zentra",
+           montoARS: 52316.66, cuotaNro: 3, cuotaTotal: 12 }),
+    ]);
+
+    const agosto = f.find((x) => x.periodo === "2026-08")!;
+    expect(agosto.detalle).toHaveLength(1);
+    expect(agosto.detalle[0].cuota).toBe("4/12");
+    expect(agosto.monto).toBeCloseTo(52316.66, 2);
+  });
+
+  it("no proyecta sobre un mes que ya importaste", () => {
+    // La cuota 3/12 ya está en el resumen de julio: contarla otra vez como
+    // "comprometido" la sumaría dos veces contra el mismo mes.
+    const f = cuotasComprometidas([
+      mv({ periodo: "2026-06", claveComercio: "ZENTRA", montoARS: 52316.66,
+           cuotaNro: 2, cuotaTotal: 12 }),
+      mv({ periodo: "2026-07", claveComercio: "OTRO", montoARS: 1000 }),
+    ]);
+    expect(f.map((x) => x.periodo)).not.toContain("2026-07");
+    expect(f[0].periodo).toBe("2026-08");
   });
 
   it("cruza el fin de año correctamente", () => {
