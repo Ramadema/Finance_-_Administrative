@@ -20,7 +20,7 @@ export default function Gastos() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHead
             titulo="Cómo se reparte el mes"
@@ -38,7 +38,7 @@ export default function Gastos() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <Card className="lg:col-span-3">
           <CardHead
             titulo="Gasto por categoría"
@@ -75,7 +75,7 @@ export default function Gastos() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHead
             titulo="Qué cambió"

@@ -65,7 +65,7 @@ export default function Ahorro() {
             />
           </div>
 
-          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card>
               <CardHead
                 titulo="Si sostenés el ritmo"

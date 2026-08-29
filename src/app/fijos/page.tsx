@@ -67,7 +67,7 @@ export default function Fijos() {
         <Suscripciones perfiles={d.perfiles} />
       </Card>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHead
             titulo="Cuotas de este mes"

@@ -57,7 +57,7 @@ export function Torta({ datos }: { datos: GastoPorCategoria[] }) {
   const pct = (m: number) => (total > 0 ? (m / total) * 100 : 0);
 
   return (
-    <div className="flex flex-col items-center gap-4 px-5 pb-5 sm:flex-row sm:items-center">
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-5 pb-5 sm:flex-row sm:items-center">
       <div className="relative h-[190px] w-[190px] shrink-0">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
