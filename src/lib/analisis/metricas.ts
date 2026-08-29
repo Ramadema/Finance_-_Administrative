@@ -340,6 +340,49 @@ export interface CuotaFutura {
   detalle: { comercio: string; cuota: string; monto: number }[];
 }
 
+export interface CuotasDelMes {
+  monto: number;
+  cantidad: number;
+  /** Qué fracción del gasto del mes es cuota de una compra anterior. */
+  porcentaje: number;
+  detalle: { comercio: string; cuota: string; monto: number; categoriaId: string }[];
+}
+
+/**
+ * Cuánto de lo que te cobra ESTE resumen son cuotas de compras que ya hiciste.
+ *
+ * A propósito no es una categoría. Una compra en 12 cuotas sigue siendo lo que
+ * compraste —un electrodoméstico, ropa— y meterla en un cajón "Cuotas" perdería
+ * eso; peor todavía, la categoría se aprende por comercio, así que marcar uno
+ * como "Cuotas" arrastraría también sus compras al contado. Acá es una lectura
+ * del mismo dato: el banco ya marca cuál es cuota y cuál no.
+ */
+export function cuotasDelMes(
+  movimientos: readonly Movimiento[],
+  periodo: string,
+): CuotasDelMes {
+  const delMes = activos(movimientos).filter(
+    (m) => m.periodo === periodo && claseDe(m) === "gasto",
+  );
+  const totalMes = delMes.reduce((a, m) => a + m.montoARS, 0);
+  const enCuotas = delMes.filter((m) => m.cuotaTotal !== null);
+  const monto = enCuotas.reduce((a, m) => a + m.montoARS, 0);
+
+  return {
+    monto,
+    cantidad: enCuotas.length,
+    porcentaje: totalMes > 0 ? (monto / totalMes) * 100 : 0,
+    detalle: enCuotas
+      .map((m) => ({
+        comercio: m.comercio,
+        cuota: `${m.cuotaNro}/${m.cuotaTotal}`,
+        monto: m.montoARS,
+        categoriaId: m.categoria,
+      }))
+      .sort((a, b) => b.monto - a.monto),
+  };
+}
+
 /** "2026-06" + 2 → "2026-08". Negativo va para atrás. */
 export function desplazarPeriodo(periodo: string, meses: number): string {
   const [anio, mes] = periodo.split("-").map(Number);

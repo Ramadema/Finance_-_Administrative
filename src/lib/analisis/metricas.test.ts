@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resumenDe, gastoPorCategoria, cuotasComprometidas, naturalezasDe, variacionPorCategoria, flujoSankey } from "./metricas";
+import { resumenDe, gastoPorCategoria, cuotasComprometidas, cuotasDelMes, naturalezasDe, variacionPorCategoria, flujoSankey } from "./metricas";
 import type { Movimiento } from "../db/esquema";
 
 function mv(p: Partial<Movimiento>): Movimiento {
@@ -274,5 +274,42 @@ describe("consumos en dólares", () => {
     const g = gastoPorCategoria(movs, "2026-08");
     expect(g.map((x) => x.nombre)).not.toContain("Ocio y viajes");
     expect(g).toHaveLength(1);
+  });
+});
+
+describe("cuotasDelMes", () => {
+  it("mide qué parte del mes ya está decidida de antes", () => {
+    const r = cuotasDelMes([
+      mv({ periodo: "2026-07", montoARS: 60000, cuotaNro: 3, cuotaTotal: 12, comercio: "Zentra" }),
+      mv({ periodo: "2026-07", montoARS: 40000 }), // al contado
+    ], "2026-07");
+
+    expect(r.monto).toBe(60000);
+    expect(r.cantidad).toBe(1);
+    expect(r.porcentaje).toBe(60);
+    expect(r.detalle[0].cuota).toBe("3/12");
+  });
+
+  it("la compra conserva su categoría real: la cuota es forma de pago", () => {
+    // Si "Cuotas" fuera categoría, esta heladera dejaría de ser "Compras" y no
+    // sabrías qué compraste.
+    const r = cuotasDelMes([
+      mv({ periodo: "2026-07", categoria: "compras", montoARS: 60000, cuotaNro: 1, cuotaTotal: 6 }),
+    ], "2026-07");
+    expect(r.detalle[0].categoriaId).toBe("compras");
+  });
+
+  it("los movimientos internos no cuentan", () => {
+    const r = cuotasDelMes([
+      mv({ periodo: "2026-07", categoria: "interno", montoARS: 90000, cuotaNro: 1, cuotaTotal: 3 }),
+    ], "2026-07");
+    expect(r.cantidad).toBe(0);
+    expect(r.porcentaje).toBe(0);
+  });
+
+  it("un mes sin cuotas no divide por cero", () => {
+    const r = cuotasDelMes([], "2026-07");
+    expect(r.monto).toBe(0);
+    expect(r.porcentaje).toBe(0);
   });
 });

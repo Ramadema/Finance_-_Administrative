@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, CircleHelp, EyeOff, Check } from "lucide-react";
+import { Search, CircleHelp, EyeOff, Check, CalendarClock } from "lucide-react";
 import { formatARS, formatUSD } from "@/lib/ingest/numero";
 import { colorSerie } from "@/lib/design/paleta";
 import { CATEGORIAS, categoria as buscarCategoria } from "@/lib/categorize/categorias";
@@ -29,12 +29,14 @@ export function TablaMovimientos({
   const tema = useTema();
   const [busqueda, setBusqueda] = useState("");
   const [soloSinCategoria, setSoloSinCategoria] = useState(false);
+  const [soloCuotas, setSoloCuotas] = useState(false);
   const [editando, setEditando] = useState<string | null>(null);
 
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return movimientos.filter((m) => {
       if (soloSinCategoria && m.categoria !== "sin_categoria") return false;
+      if (soloCuotas && m.cuotaTotal === null) return false;
       if (!q) return true;
       return (
         m.comercio.toLowerCase().includes(q) ||
@@ -42,9 +44,10 @@ export function TablaMovimientos({
         buscarCategoria(m.categoria).nombre.toLowerCase().includes(q)
       );
     });
-  }, [movimientos, busqueda, soloSinCategoria]);
+  }, [movimientos, busqueda, soloSinCategoria, soloCuotas]);
 
   const sinCategoria = movimientos.filter((m) => m.categoria === "sin_categoria").length;
+  const enCuotas = movimientos.filter((m) => m.cuotaTotal !== null).length;
 
   async function asignar(mov: Movimiento, categoriaId: string) {
     // Enseñar el comercio: aplica a todo el histórico, no solo a esta fila.
@@ -83,6 +86,19 @@ export function TablaMovimientos({
           >
             <CircleHelp className="h-3.5 w-3.5" />
             {sinCategoria} sin categorizar
+          </Boton>
+        )}
+
+        {/* Las cuotas no son una categoría —son una forma de pago, y la compra
+            sigue siendo lo que compraste— así que se filtran por el dato que ya
+            trae el banco en vez de meterlas en un cajón aparte. */}
+        {enCuotas > 0 && (
+          <Boton
+            variante={soloCuotas ? "solido" : "suave"}
+            onClick={() => setSoloCuotas((v) => !v)}
+          >
+            <CalendarClock className="h-3.5 w-3.5" />
+            {enCuotas} en cuotas
           </Boton>
         )}
       </div>

@@ -3,6 +3,7 @@
 import { useDatos } from "@/lib/DatosContext";
 import { Suscripciones } from "@/components/Suscripciones";
 import { Cuotas } from "@/components/charts/Cuotas";
+import { CuotasMes } from "@/components/CuotasMes";
 import { Card, CardHead } from "@/components/ui/Card";
 import { formatARS } from "@/lib/ingest/numero";
 import { Lock, TrendingUp } from "lucide-react";
@@ -57,13 +58,23 @@ export default function Fijos() {
         <Suscripciones perfiles={d.perfiles} />
       </Card>
 
-      <Card>
-        <CardHead
-          titulo="Cuotas comprometidas"
-          sub="Lo que ya está firmado para los próximos meses"
-        />
-        <Cuotas futuro={d.cuotas} />
-      </Card>
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHead
+            titulo="Cuotas de este mes"
+            sub="Compras viejas que seguís pagando — plata sobre la que ya no decidís"
+          />
+          <CuotasMes datos={d.cuotasMes} />
+        </Card>
+
+        <Card>
+          <CardHead
+            titulo="Cuotas comprometidas"
+            sub="Lo que ya está firmado para los próximos meses"
+          />
+          <Cuotas futuro={d.cuotas} />
+        </Card>
+      </div>
     </div>
   );
 }

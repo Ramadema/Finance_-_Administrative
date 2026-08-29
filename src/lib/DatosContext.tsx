@@ -6,9 +6,9 @@ import {
 import { db, type Movimiento, type IngresoManual } from "./db/esquema";
 import { asegurarPersistencia, mapaIngresos, todaLaConfig } from "./db/repo";
 import {
-  resumenDe, gastoPorCategoria, gastoDiario, gastoFueraDelMes, cuotasComprometidas, serieMensual,
+  resumenDe, gastoPorCategoria, gastoDiario, gastoFueraDelMes, cuotasComprometidas, cuotasDelMes, serieMensual,
   naturalezasDe, perfiles as perfilesDe, flujoSankey, variacionPorCategoria,
-  type ResumenPeriodo, type GastoPorCategoria, type CuotaFutura, type FlujoSankey,
+  type ResumenPeriodo, type GastoPorCategoria, type CuotaFutura, type CuotasDelMes, type FlujoSankey,
 } from "./analisis/metricas";
 import { capacidadDe, proyectarAhorro, fondoEmergencia, type CapacidadAhorro } from "./analisis/ahorro";
 import { generarInsights, historicoPorCategoria, type Insight } from "./analisis/insights";
@@ -46,6 +46,8 @@ export interface Datos {
   /** Del resumen del mes, lo que se compró en otro mes: cuotas y ajustes. */
   fueraDelMes: { monto: number; cantidad: number };
   cuotas: CuotaFutura[];
+  /** Cuánto del mes en curso son cuotas de compras anteriores. */
+  cuotasMes: CuotasDelMes;
   flujo: FlujoSankey | null;
   perfiles: PerfilRecurrencia[];
   naturalezas: ReadonlyMap<string, Naturaleza>;
@@ -105,7 +107,8 @@ export function DatosProvider({ children }: { children: React.ReactNode }) {
         resumen: null, previo: null, serie: [], categorias: [],
         categoriasPorPeriodo: new Map<string, GastoPorCategoria[]>(),
         diario: new Map<string, number>(), fueraDelMes: { monto: 0, cantidad: 0 },
-        cuotas: [], flujo: null, perfiles: [],
+        cuotas: [], cuotasMes: { monto: 0, cantidad: 0, porcentaje: 0, detalle: [] },
+        flujo: null, perfiles: [],
         naturalezas: new Map<string, Naturaleza>() as ReadonlyMap<string, Naturaleza>,
         movimientosDelMes: [], capacidad: null, proyeccion: null, fondo: null,
         insights: [], variacion: [],
@@ -135,6 +138,7 @@ export function DatosProvider({ children }: { children: React.ReactNode }) {
       diario: gastoDiario(movimientos, periodo),
       fueraDelMes: gastoFueraDelMes(movimientos, periodo),
       cuotas,
+      cuotasMes: cuotasDelMes(movimientos, periodo),
       flujo: flujoSankey(movimientos, periodo, naturalezas, resumen),
       perfiles, naturalezas,
       movimientosDelMes: movimientos.filter((m) => m.periodo === periodo),
