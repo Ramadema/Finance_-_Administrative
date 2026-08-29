@@ -134,6 +134,25 @@ export async function importarArchivo(archivo: File): Promise<ResultadoImport> {
   };
 }
 
+/**
+ * Borra un archivo importado y los movimientos que trajo.
+ *
+ * Solo se van los movimientos que TODAVÍA pertenecen a esta importación. Dos
+ * resúmenes pueden solaparse; si uno más nuevo volvió a traer un movimiento,
+ * ese quedó a nombre del archivo nuevo y no se toca acá.
+ *
+ * Lo aprendido no se borra: las categorías que le enseñaste a cada comercio,
+ * las reglas y los ingresos quedan. Si volvés a subir el mismo archivo, vuelve
+ * categorizado como lo habías dejado.
+ */
+export async function borrarImportacion(id: string): Promise<number> {
+  return db().transaction("rw", db().movimientos, db().importaciones, async () => {
+    const borrados = await db().movimientos.where("importacionId").equals(id).delete();
+    await db().importaciones.delete(id);
+    return borrados;
+  });
+}
+
 /** Los archivos que ya importaste, del más reciente al más viejo. */
 export async function listarImportaciones(): Promise<Importacion[]> {
   const filas = await db().importaciones.toArray();
@@ -274,19 +293,6 @@ export async function asegurarPersistencia(): Promise<boolean | null> {
   }
 }
 
-export async function borrarTodo(): Promise<void> {
-  await db().transaction("rw",
-    [db().movimientos, db().importaciones, db().comercios, db().reglas, db().presupuestos,
-     db().ingresos, db().config],
-    async () => {
-      await Promise.all([
-        db().movimientos.clear(), db().importaciones.clear(), db().comercios.clear(),
-        db().reglas.clear(), db().presupuestos.clear(),
-        db().ingresos.clear(), db().config.clear(),
-      ]);
-    },
-  );
-}
 
 // ---------- Ingresos manuales ----------
 

@@ -1,16 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Moon, Sun, Download, Upload as UploadIcon, Wallet, ChevronDown, Trash2, ShieldAlert } from "lucide-react";
+import { Moon, Sun, Download, Upload as UploadIcon, Wallet, ChevronDown, ShieldAlert } from "lucide-react";
 import { DatosProvider, useDatos } from "@/lib/DatosContext";
-import { borrarTodo, exportarJSON, importarJSON } from "@/lib/db/repo";
+import { exportarJSON, importarJSON } from "@/lib/db/repo";
 import { alternarTema, useTema } from "@/lib/design/useTema";
 import { nombrePeriodo } from "@/lib/utils";
 import { NavLateral, NavInferior, SECCIONES } from "./Nav";
 import { Boton } from "./ui/Boton";
-import { Confirmar } from "./ui/Confirmar";
 import { ProveedorTooltips, Tooltip } from "./ui/Tooltip";
 
 /**
@@ -84,9 +82,8 @@ function Marco({ children }: { children: React.ReactNode }) {
 }
 
 function Encabezado() {
-  const { periodos, periodo, setPeriodo, movimientos, recargar } = useDatos();
+  const { periodos, periodo, setPeriodo, recargar } = useDatos();
   const tema = useTema();
-  const [confirmando, setConfirmando] = useState(false);
 
   async function descargar() {
     const json = await exportarJSON();
@@ -102,12 +99,6 @@ function Encabezado() {
     const r = await importarJSON(await archivo.text());
     if (r.ok) await recargar();
     else alert(r.error);
-  }
-
-  async function borrar() {
-    await borrarTodo();
-    setConfirmando(false);
-    await recargar();
   }
 
   return (
@@ -172,18 +163,6 @@ function Encabezado() {
           </label>
         </Tooltip>
 
-        {movimientos.length > 0 && (
-          <Tooltip texto="Borrar todos los datos de este navegador">
-            <Boton
-              variante="fantasma"
-              onClick={() => setConfirmando(true)}
-              aria-label="Borrar todos los datos"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Boton>
-          </Tooltip>
-        )}
-
         <Tooltip texto={tema === "dark" ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}>
           <Boton variante="fantasma" onClick={alternarTema} aria-label="Cambiar tema">
             {tema === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -191,27 +170,6 @@ function Encabezado() {
         </Tooltip>
       </div>
 
-      <Confirmar
-        abierto={confirmando}
-        onAbierto={setConfirmando}
-        titulo="¿Borrar todos tus datos?"
-        textoConfirmar="Borrar todo"
-        onConfirmar={borrar}
-        extra={
-          <Boton onClick={descargar} className="mr-auto">
-            <Download className="h-4 w-4" /> Bajar respaldo
-          </Boton>
-        }
-      >
-        <p>
-          Se borran los {movimientos.length} movimientos importados, las categorías que
-          le enseñaste, tus ingresos y tus reglas.
-        </p>
-        <p>
-          No se puede deshacer: los datos viven solo en este navegador, así que no hay
-          copia en ningún otro lado. Si querés conservarlos, bajá el respaldo primero.
-        </p>
-      </Confirmar>
     </header>
   );
 }

@@ -21,7 +21,9 @@ export function Waterfall({
   periodoB: string;
 }) {
   const tema = useTema();
-  const filas = variacion.filter((v) => Math.abs(v.delta) > 0).slice(0, 8);
+  const conDiferencia = variacion.filter((v) => Math.abs(v.delta) > 0);
+  const filas = conDiferencia.slice(0, 8);
+  const ocultas = conDiferencia.length - filas.length;
 
   if (filas.length === 0) {
     return (
@@ -32,7 +34,10 @@ export function Waterfall({
   }
 
   const max = Math.max(...filas.map((v) => Math.abs(v.delta)));
-  const total = filas.reduce((a, v) => a + v.delta, 0);
+  // El titular suma TODAS las categorías, no solo las que entran en el gráfico.
+  // Sumando las visibles, el número dejaba de coincidir con la diferencia real
+  // entre los dos meses y no había nada en pantalla que explicara el faltante.
+  const total = conDiferencia.reduce((a, v) => a + v.delta, 0);
 
   const masCaro = tema === "dark" ? "#e66767" : "#e34948";
   const masBarato = tema === "dark" ? "#3987e5" : "#2a78d6";
@@ -96,6 +101,13 @@ export function Waterfall({
         </span>
         <span className="ml-auto">{nombrePeriodo(periodoB)}</span>
       </div>
+      {ocultas > 0 && (
+        <p className="mt-3 text-[12px]" style={{ color: "var(--ink-mudo)" }}>
+          {ocultas === 1
+            ? "Hay 1 categoría más con una diferencia chica, incluida en el total."
+            : `Hay ${ocultas} categorías más con diferencias chicas, incluidas en el total.`}
+        </p>
+      )}
     </div>
   );
 }

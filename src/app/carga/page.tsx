@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CircleCheck, TriangleAlert, FileSpreadsheet } from "lucide-react";
+import { CircleCheck, TriangleAlert, FileSpreadsheet, Trash2 } from "lucide-react";
 import { useDatos } from "@/lib/DatosContext";
-import { listarImportaciones } from "@/lib/db/repo";
+import { borrarImportacion, listarImportaciones } from "@/lib/db/repo";
 import type { Importacion } from "@/lib/db/esquema";
 import { ZonaCarga } from "@/components/ZonaCarga";
 import { Card, CardHead } from "@/components/ui/Card";
+import { Confirmar } from "@/components/ui/Confirmar";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { formatARS } from "@/lib/ingest/numero";
 import { nombrePeriodo } from "@/lib/utils";
 
@@ -21,6 +23,7 @@ import { nombrePeriodo } from "@/lib/utils";
 export default function Carga() {
   const { recargar } = useDatos();
   const [importaciones, setImportaciones] = useState<Importacion[]>([]);
+  const [aBorrar, setABorrar] = useState<Importacion | null>(null);
 
   const refrescar = useCallback(async () => {
     setImportaciones(await listarImportaciones());
@@ -33,6 +36,13 @@ export default function Carga() {
   const alImportar = useCallback(async () => {
     await Promise.all([recargar(), refrescar()]);
   }, [recargar, refrescar]);
+
+  const confirmarBorrado = useCallback(async () => {
+    if (!aBorrar) return;
+    await borrarImportacion(aBorrar.id);
+    setABorrar(null);
+    await Promise.all([recargar(), refrescar()]);
+  }, [aBorrar, recargar, refrescar]);
 
   return (
     <div className="space-y-4">
@@ -101,11 +111,39 @@ export default function Carga() {
                     No cuadra
                   </span>
                 )}
+
+                <Tooltip texto="Borrar este resumen y sus movimientos" lado="left">
+                  <button
+                    onClick={() => setABorrar(i)}
+                    aria-label={`Borrar ${i.nombreArchivo}`}
+                    className="shrink-0 rounded p-1 opacity-40 transition-opacity hover:opacity-100"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
               </li>
             ))}
           </ul>
         )}
       </Card>
+
+      <Confirmar
+        abierto={aBorrar !== null}
+        onAbierto={(v) => { if (!v) setABorrar(null); }}
+        titulo="¿Borrar este resumen?"
+        textoConfirmar="Borrar resumen"
+        onConfirmar={confirmarBorrado}
+      >
+        <p>
+          Se borran los {aBorrar?.cantidadMovimientos} movimientos que trajo{" "}
+          <strong style={{ color: "var(--ink-primario)" }}>{aBorrar?.nombreArchivo}</strong>
+          {aBorrar?.periodo ? ` (${nombrePeriodo(aBorrar.periodo)})` : ""}.
+        </p>
+        <p>
+          Las categorías que le enseñaste a cada comercio quedan: si volvés a subir el
+          mismo archivo, vuelve categorizado como lo dejaste.
+        </p>
+      </Confirmar>
     </div>
   );
 }
