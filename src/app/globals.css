@@ -1,0 +1,166 @@
+@import "tailwindcss";
+
+/*
+ * Tokens de diseño. La paleta de series salió validada con el validador del
+ * skill dataviz (6 checks, light y dark) — no se toca sin volver a correrlo.
+ *
+ * En light, aqua/amarillo/magenta quedan bajo 3:1 contra la superficie. Eso
+ * activa la regla de relieve: los gráficos llevan etiqueta directa visible y
+ * hay vista de tabla. No es decorativo, es la mitigación.
+ */
+
+@theme {
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius-card: 14px;
+}
+
+:root {
+  color-scheme: light;
+
+  --superficie: #fcfcfb;
+  --plano: #f4f4f1;
+  --elevado: #ffffff;
+
+  --ink-primario: #0b0b0b;
+  --ink-secundario: #52514e;
+  --ink-mudo: #898781;
+
+  --grilla: #e1e0d9;
+  --eje: #c3c2b7;
+  --borde: rgba(11, 11, 11, 0.10);
+  --borde-fuerte: rgba(11, 11, 11, 0.18);
+
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --s4: #eda100;
+  --s5: #e87ba4;
+  --s6: #008300;
+  --s7: #4a3aa7;
+  --s8: #e34948;
+  --neutro: #a8a69e;
+
+  --bueno: #0ca30c;
+  --advertencia: #fab219;
+  --serio: #ec835a;
+  --critico: #d03b3b;
+  --texto-bueno: #006300;
+
+  --sombra-card: 0 1px 2px rgba(11, 11, 11, 0.04), 0 8px 24px -12px rgba(11, 11, 11, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --superficie: #1a1a19;
+    --plano: #0d0d0d;
+    --elevado: #222221;
+
+    --ink-primario: #ffffff;
+    --ink-secundario: #c3c2b7;
+    --ink-mudo: #898781;
+
+    --grilla: #2c2c2a;
+    --eje: #383835;
+    --borde: rgba(255, 255, 255, 0.10);
+    --borde-fuerte: rgba(255, 255, 255, 0.18);
+
+    --s1: #3987e5;
+    --s2: #d95926;
+    --s3: #199e70;
+    --s4: #c98500;
+    --s5: #d55181;
+    --s6: #008300;
+    --s7: #9085e9;
+    --s8: #e66767;
+    --neutro: #6b6a64;
+
+    --texto-bueno: #0ca30c;
+
+    --sombra-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --superficie: #1a1a19;
+  --plano: #0d0d0d;
+  --elevado: #222221;
+
+  --ink-primario: #ffffff;
+  --ink-secundario: #c3c2b7;
+  --ink-mudo: #898781;
+
+  --grilla: #2c2c2a;
+  --eje: #383835;
+  --borde: rgba(255, 255, 255, 0.10);
+  --borde-fuerte: rgba(255, 255, 255, 0.18);
+
+  --s1: #3987e5;
+  --s2: #d95926;
+  --s3: #199e70;
+  --s4: #c98500;
+  --s5: #d55181;
+  --s6: #008300;
+  --s7: #9085e9;
+  --s8: #e66767;
+  --neutro: #6b6a64;
+
+  --texto-bueno: #0ca30c;
+
+  --sombra-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+}
+
+* {
+  border-color: var(--borde);
+}
+
+body {
+  background: var(--plano);
+  color: var(--ink-primario);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Números grandes: proporcionales. Tabulares solo donde hay que alinear. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ficha base de todo el dashboard. */
+.card {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radius-card);
+  box-shadow: var(--sombra-card);
+}
+
+/* Textura sutil de fondo — le da profundidad sin ruido visual. */
+.plano-textura {
+  background-image:
+    radial-gradient(circle at 15% 0%, color-mix(in oklab, var(--s1) 7%, transparent), transparent 45%),
+    radial-gradient(circle at 85% 5%, color-mix(in oklab, var(--s7) 6%, transparent), transparent 40%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+::selection {
+  background: color-mix(in oklab, var(--s1) 28%, transparent);
+}
+
+/* Scrollbar discreta */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--borde-fuerte);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
