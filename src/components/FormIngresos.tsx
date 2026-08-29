@@ -8,6 +8,7 @@ import type { IngresoManual } from "@/lib/db/esquema";
 import { useDatos } from "@/lib/DatosContext";
 import { nombrePeriodo } from "@/lib/utils";
 import { Boton } from "./ui/Boton";
+import { Tooltip } from "./ui/Tooltip";
 
 /**
  * Carga manual de ingresos.
@@ -81,10 +82,13 @@ export function FormIngresos() {
               <span className="tabular text-[13px] font-medium">
                 {formatARS(i.monto, { decimales: false })}
               </span>
-              <button onClick={() => void quitar(i.id)} title="Quitar"
-                      className="rounded p-1 opacity-40 transition-opacity hover:opacity-100">
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              <Tooltip texto={`Quitar "${i.concepto}"`} lado="left">
+                <button onClick={() => void quitar(i.id)}
+                        aria-label={`Quitar ${i.concepto}`}
+                        className="rounded p-1 opacity-40 transition-opacity hover:opacity-100">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </Tooltip>
             </li>
           ))}
         </ul>

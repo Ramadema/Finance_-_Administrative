@@ -134,6 +134,12 @@ export async function importarArchivo(archivo: File): Promise<ResultadoImport> {
   };
 }
 
+/** Los archivos que ya importaste, del más reciente al más viejo. */
+export async function listarImportaciones(): Promise<Importacion[]> {
+  const filas = await db().importaciones.toArray();
+  return filas.sort((a, b) => b.fechaImport.localeCompare(a.fechaImport));
+}
+
 /** Todos los períodos con datos, ascendente. */
 export async function periodosDisponibles(): Promise<string[]> {
   const movs = await db().movimientos.toArray();

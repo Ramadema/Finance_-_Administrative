@@ -11,6 +11,7 @@ import { nombrePeriodo } from "@/lib/utils";
 import { NavLateral, NavInferior, SECCIONES } from "./Nav";
 import { Boton } from "./ui/Boton";
 import { Confirmar } from "./ui/Confirmar";
+import { ProveedorTooltips, Tooltip } from "./ui/Tooltip";
 
 /**
  * Estructura de la app: sidebar en desktop, barra inferior en mobile.
@@ -20,7 +21,9 @@ import { Confirmar } from "./ui/Confirmar";
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <DatosProvider>
-      <Marco>{children}</Marco>
+      <ProveedorTooltips>
+        <Marco>{children}</Marco>
+      </ProveedorTooltips>
     </DatosProvider>
   );
 }
@@ -147,34 +150,45 @@ function Encabezado() {
           </div>
         )}
 
-        <Boton variante="fantasma" onClick={descargar} title="Descargar respaldo">
-          <Download className="h-4 w-4" />
-        </Boton>
+        <Tooltip texto="Descargar un respaldo de todos tus datos">
+          <Boton variante="fantasma" onClick={descargar} aria-label="Descargar respaldo">
+            <Download className="h-4 w-4" />
+          </Boton>
+        </Tooltip>
 
-        <label className="inline-flex cursor-pointer items-center rounded-lg px-3 py-1.5"
-               style={{ color: "var(--ink-secundario)" }} title="Restaurar respaldo">
-          <UploadIcon className="h-4 w-4" />
-          <input type="file" accept="application/json" className="sr-only"
-                 onChange={(e) => {
-                   const f = e.target.files?.[0];
-                   if (f) void restaurar(f);
-                   e.target.value = "";
-                 }} />
-        </label>
+        <Tooltip texto="Restaurar desde un respaldo que hayas bajado antes">
+          <label
+            className="inline-flex cursor-pointer items-center rounded-lg px-3 py-1.5 focus-within:outline-2 focus-within:outline-offset-2"
+            style={{ color: "var(--ink-secundario)", outlineColor: "var(--s1)" }}
+          >
+            <UploadIcon className="h-4 w-4" />
+            <span className="sr-only">Restaurar respaldo</span>
+            <input type="file" accept="application/json" className="sr-only"
+                   onChange={(e) => {
+                     const f = e.target.files?.[0];
+                     if (f) void restaurar(f);
+                     e.target.value = "";
+                   }} />
+          </label>
+        </Tooltip>
 
         {movimientos.length > 0 && (
-          <Boton
-            variante="fantasma"
-            onClick={() => setConfirmando(true)}
-            title="Borrar todos los datos"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Boton>
+          <Tooltip texto="Borrar todos los datos de este navegador">
+            <Boton
+              variante="fantasma"
+              onClick={() => setConfirmando(true)}
+              aria-label="Borrar todos los datos"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Boton>
+          </Tooltip>
         )}
 
-        <Boton variante="fantasma" onClick={alternarTema} title="Cambiar tema">
-          {tema === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </Boton>
+        <Tooltip texto={tema === "dark" ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}>
+          <Boton variante="fantasma" onClick={alternarTema} aria-label="Cambiar tema">
+            {tema === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Boton>
+        </Tooltip>
       </div>
 
       <Confirmar

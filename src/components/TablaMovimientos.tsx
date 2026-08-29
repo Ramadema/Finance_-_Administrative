@@ -9,6 +9,7 @@ import { useTema } from "@/lib/design/useTema";
 import { recategorizarComercio, editarMovimiento } from "@/lib/db/repo";
 import type { Movimiento } from "@/lib/db/esquema";
 import { Boton } from "./ui/Boton";
+import { Tooltip } from "./ui/Tooltip";
 
 /**
  * Tabla de movimientos: el detalle auditable de todo.
@@ -185,13 +186,22 @@ export function TablaMovimientos({
                     </td>
 
                     <td className="py-2 pl-2">
-                      <button
-                        onClick={() => void alternarExcluido(m)}
-                        title={m.excluido ? "Volver a incluir" : "Excluir del análisis"}
-                        className="rounded p-1 opacity-40 transition-opacity hover:opacity-100"
+                      <Tooltip
+                        lado="left"
+                        texto={
+                          m.excluido
+                            ? "Volver a incluirlo en el análisis"
+                            : "Excluirlo del análisis sin borrarlo"
+                        }
                       >
-                        <EyeOff className="h-3.5 w-3.5" />
-                      </button>
+                        <button
+                          onClick={() => void alternarExcluido(m)}
+                          aria-label={m.excluido ? "Volver a incluir" : "Excluir del análisis"}
+                          className="rounded p-1 opacity-40 transition-opacity hover:opacity-100"
+                        >
+                          <EyeOff className="h-3.5 w-3.5" />
+                        </button>
+                      </Tooltip>
                     </td>
                   </tr>
                 );

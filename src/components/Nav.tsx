@@ -3,18 +3,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, PieChart, Repeat, PiggyBank, Lightbulb, Receipt,
+  LayoutDashboard, PieChart, Repeat, PiggyBank, Lightbulb, Receipt, Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDatos } from "@/lib/DatosContext";
 
+/**
+ * `corto` es para la barra inferior de mobile: siete ítems a ancho fijo no
+ * entran con las etiquetas largas, y truncar "Movimientos" a "Movimie…" es
+ * peor que darle un nombre propio.
+ */
 export const SECCIONES = [
-  { href: "/", nombre: "Resumen", Icono: LayoutDashboard },
-  { href: "/gastos", nombre: "Gastos", Icono: PieChart },
-  { href: "/fijos", nombre: "Fijos", Icono: Repeat },
-  { href: "/ahorro", nombre: "Ahorro", Icono: PiggyBank },
-  { href: "/insights", nombre: "Alertas", Icono: Lightbulb },
-  { href: "/movimientos", nombre: "Movimientos", Icono: Receipt },
+  { href: "/", nombre: "Resumen", corto: "Resumen", Icono: LayoutDashboard },
+  { href: "/gastos", nombre: "Gastos", corto: "Gastos", Icono: PieChart },
+  { href: "/fijos", nombre: "Fijos", corto: "Fijos", Icono: Repeat },
+  { href: "/ahorro", nombre: "Ahorro", corto: "Ahorro", Icono: PiggyBank },
+  { href: "/insights", nombre: "Alertas", corto: "Alertas", Icono: Lightbulb },
+  { href: "/movimientos", nombre: "Movimientos", corto: "Detalle", Icono: Receipt },
+  { href: "/carga", nombre: "Cargar resumen", corto: "Cargar", Icono: Upload },
 ] as const;
 
 /** Cuántas observaciones piden atención — se muestra como globo en el menú. */
@@ -77,7 +83,7 @@ export function NavInferior() {
       }}
     >
       <ul className="flex">
-        {SECCIONES.map(({ href, nombre, Icono }) => {
+        {SECCIONES.map(({ href, corto, Icono }) => {
           const activo = pathname === href;
           return (
             <li key={href} className="flex-1">
@@ -88,7 +94,13 @@ export function NavInferior() {
                 style={{ color: activo ? "var(--s1)" : "var(--ink-mudo)" }}
               >
                 <Icono className="h-[18px] w-[18px]" />
-                <span className="text-[10px] font-medium">{nombre}</span>
+                {/* `truncate` es red de contención: con siete secciones cada
+                    ítem queda en ~55px y las etiquetas cortas entran, pero si
+                    mañana se agrega una octava conviene que recorte antes de
+                    desbordar la barra. */}
+                <span className="max-w-full truncate px-0.5 text-[10px] font-medium">
+                  {corto}
+                </span>
                 {href === "/insights" && pendientes > 0 && (
                   <span
                     className="absolute top-1 right-[22%] h-[7px] w-[7px] rounded-full"
