@@ -3,8 +3,13 @@ import { perfilarRecurrencia, repartoFijoVariable, indiceNaturaleza, type Movimi
 
 const PERIODOS = ["2026-05", "2026-06", "2026-07", "2026-08"];
 
-function mov(clave: string, periodo: string, monto: number): MovimientoParaAnalisis {
-  return { claveComercio: clave, comercio: clave, categoria: "servicios", periodo, montoARS: monto };
+function mov(
+  clave: string, periodo: string, monto: number, declaradoFijo = false,
+): MovimientoParaAnalisis {
+  return {
+    claveComercio: clave, comercio: clave, categoria: "servicios",
+    periodo, montoARS: monto, declaradoFijo,
+  };
 }
 
 describe("perfilarRecurrencia", () => {
@@ -113,5 +118,38 @@ describe("repartoFijoVariable", () => {
     const r = repartoFijoVariable(movs, nat, "2026-08");
     expect(r.fijo).toBe(108000);
     expect(r.esporadico).toBe(250000);
+  });
+});
+
+describe("gastos fijos declarados a mano", () => {
+  it("un alquiler que aumentó sigue siendo fijo", () => {
+    // El detector mide la fracción de meses SIN cambio. Con dos meses y una
+    // suba, esa fracción es 0 y saldría "variable" — justo el gasto más
+    // ineludible que hay. Lo declarado no se detecta.
+    const meses = ["2026-06", "2026-07"];
+    const p = perfilarRecurrencia(
+      [mov("ALQUILER", "2026-06", 100000, true), mov("ALQUILER", "2026-07", 200000, true)],
+      meses,
+    )[0];
+    expect(p.naturaleza).toBe("fijo");
+    expect(p.esSuscripcion).toBe(true);
+  });
+
+  it("sin declarar, ese mismo salto es variable", () => {
+    const meses = ["2026-06", "2026-07"];
+    const p = perfilarRecurrencia(
+      [mov("ALGO", "2026-06", 100000), mov("ALGO", "2026-07", 200000)],
+      meses,
+    )[0];
+    expect(p.naturaleza).toBe("variable");
+  });
+
+  it("declarado en un solo mes también cuenta como fijo", () => {
+    // Recién cargado, o vigente desde este mes: no hay historia que mirar.
+    const p = perfilarRecurrencia(
+      [mov("FACULTAD", "2026-07", 90000, true)],
+      ["2026-06", "2026-07"],
+    )[0];
+    expect(p.naturaleza).toBe("fijo");
   });
 });

@@ -23,6 +23,12 @@ export interface Importacion {
   advertencias: string[];
 }
 
+/**
+ * `importacionId` de los movimientos que genera un gasto fijo cargado a mano.
+ * Los separa de los que vinieron de un archivo del banco.
+ */
+export const ORIGEN_FIJO = "fijo";
+
 export interface Movimiento {
   id: string;
   importacionId: string;

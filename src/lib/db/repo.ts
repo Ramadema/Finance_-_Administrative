@@ -1,4 +1,4 @@
-import { db, type Movimiento, type Importacion, type ComercioMemorizado,
+import { db, ORIGEN_FIJO, type Movimiento, type Importacion, type ComercioMemorizado,
          type IngresoManual, type GastoFijo, type Config } from "./esquema";
 import { parsearBBVATarjeta } from "../ingest/bbva-xls";
 import { asignarIds, hashArchivo, fechaISO, periodoDe } from "../ingest/dedupe";
@@ -175,12 +175,6 @@ export async function listarImportaciones(): Promise<Importacion[]> {
 
 // ---------- Gastos fijos cargados a mano ----------
 
-/**
- * Marca de origen de los movimientos que genera un gasto fijo.
- * Los separa de los que vinieron de un archivo, que se borran por importación.
- */
-const ORIGEN_FIJO = "fijo";
-
 /** Id estable: re-sincronizar no duplica ni pisa lo que ya estaba bien. */
 function idMovimientoFijo(fijoId: string, periodo: string): string {
   return `fijo|${fijoId}|${periodo}`;
@@ -260,12 +254,51 @@ export async function sincronizarGastosFijos(): Promise<number> {
   return deseados.size;
 }
 
+/** "2026-08" → "2026-07". */
+function mesAnterior(periodo: string): string {
+  const [anio, mes] = periodo.split("-").map(Number);
+  const d = new Date(anio, mes - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+const mismoConcepto = (a: string, b: string) =>
+  a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
+
+/**
+ * Guarda un gasto fijo y cierra el que reemplaza.
+ *
+ * Cuando sube el alquiler, lo natural es cargar una segunda entrada con el
+ * monto nuevo. Si la anterior sigue abierta las dos corren a la vez y el mes
+ * suma los dos montos — un número mal, sin nada que lo indique. Así que una
+ * entrada con el MISMO concepto que arranca después cierra a la anterior en el
+ * mes previo, y se devuelve cuál se cerró para poder decirlo en pantalla: es un
+ * cambio en datos que el usuario no pidió explícitamente.
+ */
 export async function guardarGastoFijo(
   gasto: Omit<GastoFijo, "id"> & { id?: string },
-): Promise<void> {
+): Promise<{ id: string; cerrado: GastoFijo | null }> {
   const id = gasto.id ?? `gf|${crypto.randomUUID()}`;
-  await db().gastosFijos.put({ ...gasto, id });
+  const nuevo: GastoFijo = { ...gasto, id };
+
+  const previos = await db().gastosFijos.toArray();
+  const aCerrar =
+    previos.find(
+      (p) =>
+        p.id !== id &&
+        mismoConcepto(p.concepto, nuevo.concepto) &&
+        p.desde < nuevo.desde &&
+        (p.hasta === null || p.hasta >= nuevo.desde),
+    ) ?? null;
+
+  await db().transaction("rw", db().gastosFijos, async () => {
+    if (aCerrar) {
+      await db().gastosFijos.put({ ...aCerrar, hasta: mesAnterior(nuevo.desde) });
+    }
+    await db().gastosFijos.put(nuevo);
+  });
+
   await sincronizarGastosFijos();
+  return { id, cerrado: aCerrar };
 }
 
 export async function borrarGastoFijo(id: string): Promise<void> {

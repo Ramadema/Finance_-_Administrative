@@ -39,6 +39,8 @@ export function FormGastosFijos() {
   const [categoriaId, setCategoriaId] = useState("servicios");
   const [subcategoria, setSubcategoria] = useState("Alquiler");
   const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
+  const [aviso, setAviso] = useState<string | null>(null);
 
   const refrescar = useCallback(async () => {
     setItems(await listarGastosFijos());
@@ -57,14 +59,21 @@ export function FormGastosFijos() {
 
   async function agregar() {
     if (!puedeAgregar) return;
-    await guardarGastoFijo({
+    const { cerrado } = await guardarGastoFijo({
       concepto: concepto.trim(),
       monto: montoParseado!,
       categoria: categoriaId,
       subcategoria: subcategoria || null,
       desde,
-      hasta: null,
+      hasta: hasta || null,
     });
+    // Cerrar el anterior es un cambio que no pediste: hay que decirlo.
+    setAviso(
+      cerrado
+        ? `"${cerrado.concepto}" de ${formatARS(cerrado.monto, { decimales: false })} ` +
+          `se cerró en ${nombrePeriodo(mesPrevio(desde))}. Los dos juntos habrían sumado doble.`
+        : null,
+    );
     setConcepto("");
     setMonto("");
     await refrescar();
@@ -96,6 +105,7 @@ export function FormGastosFijos() {
                     {cat.nombre}
                     {i.subcategoria ? ` · ${i.subcategoria}` : ""}
                     {i.desde !== periodos[0] ? ` · desde ${nombrePeriodo(i.desde)}` : ""}
+                    {i.hasta ? ` · hasta ${nombrePeriodo(i.hasta)}` : ""}
                   </span>
                 </span>
                 <span className="tabular text-[13px] font-medium">
@@ -163,11 +173,32 @@ export function FormGastosFijos() {
           />
         </Campo>
 
+        <Campo etiqueta="Hasta" className="w-[140px]">
+          <Select
+            value={hasta}
+            onChange={setHasta}
+            opciones={[
+              { valor: "", texto: "Sigue vigente" },
+              ...periodos.filter((p) => p >= desde).map((p) => ({ valor: p, texto: nombrePeriodo(p) })),
+            ]}
+          />
+        </Campo>
+
         <Boton variante="solido" onClick={() => void agregar()} disabled={!puedeAgregar}>
           <Plus className="h-3.5 w-3.5" />
           Agregar
         </Boton>
       </div>
+
+      {aviso && (
+        <p className="mt-3 rounded-lg px-3 py-2 text-[12.5px] leading-relaxed"
+           style={{
+             background: "color-mix(in oklab, var(--s1) 12%, transparent)",
+             color: "var(--ink-secundario)",
+           }}>
+          {aviso}
+        </p>
+      )}
 
       {items.length > 0 && (
         <div className="mt-4 flex items-baseline justify-between border-t pt-3"
@@ -227,4 +258,11 @@ function Select({
       ))}
     </select>
   );
+}
+
+/** "2026-08" → "2026-07". Solo para el texto del aviso. */
+function mesPrevio(periodo: string): string {
+  const [anio, mes] = periodo.split("-").map(Number);
+  const d = new Date(anio, mes - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }

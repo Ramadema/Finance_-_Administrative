@@ -1,4 +1,4 @@
-import type { Movimiento } from "../db/esquema";
+import { ORIGEN_FIJO, type Movimiento } from "../db/esquema";
 import { categoria as buscarCategoria, CATEGORIAS } from "../categorize/categorias";
 import { perfilarRecurrencia, indiceNaturaleza, type Naturaleza, type MovimientoParaAnalisis } from "../categorize/recurrencia";
 
@@ -57,6 +57,7 @@ export function aAnalisis(ms: readonly Movimiento[]): MovimientoParaAnalisis[] {
     categoria: m.categoria,
     periodo: m.periodo,
     montoARS: m.montoARS,
+    declaradoFijo: m.importacionId === ORIGEN_FIJO,
   }));
 }
 
