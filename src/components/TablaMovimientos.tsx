@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Search, CircleHelp, EyeOff, Check, CalendarClock } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Search, CircleHelp, EyeOff, Check, CalendarClock, X, CalendarRange } from "lucide-react";
 import { formatARS, formatUSD } from "@/lib/ingest/numero";
 import { colorSerie } from "@/lib/design/paleta";
 import { CATEGORIAS, categoria as buscarCategoria } from "@/lib/categorize/categorias";
@@ -21,20 +21,41 @@ import { Tooltip } from "./ui/Tooltip";
  * del color.
  */
 export function TablaMovimientos({
-  movimientos, onCambio,
+  movimientos, movimientosTodos, categoriaInicial = null,
+  todosLosMeses = false, onTodosLosMeses, onCambio,
 }: {
+  /** Los del período elegido en el encabezado. */
   movimientos: Movimiento[];
+  /** Todo el histórico, para el modo "todos los meses". */
+  movimientosTodos?: Movimiento[];
+  /** Categoría con la que se entró desde un gráfico, vía `?categoria=`. */
+  categoriaInicial?: string | null;
+  /**
+   * El alcance lo controla la página: el encabezado dice de qué mes es la
+   * lista, así que no puede quedar afirmando "Julio" mientras la tabla muestra
+   * el histórico entero.
+   */
+  todosLosMeses?: boolean;
+  onTodosLosMeses?: (v: boolean) => void;
   onCambio: () => void;
 }) {
   const tema = useTema();
   const [busqueda, setBusqueda] = useState("");
   const [soloSinCategoria, setSoloSinCategoria] = useState(false);
   const [soloCuotas, setSoloCuotas] = useState(false);
+  const [categoria, setCategoria] = useState<string | null>(categoriaInicial);
   const [editando, setEditando] = useState<string | null>(null);
+
+  // Llegar desde otro gráfico con otra categoría tiene que cambiar el filtro,
+  // no quedarse con el primero que se montó.
+  useEffect(() => setCategoria(categoriaInicial), [categoriaInicial]);
+
+  const fuente = todosLosMeses ? (movimientosTodos ?? movimientos) : movimientos;
 
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    return movimientos.filter((m) => {
+    return fuente.filter((m) => {
+      if (categoria && m.categoria !== categoria) return false;
       if (soloSinCategoria && m.categoria !== "sin_categoria") return false;
       if (soloCuotas && m.cuotaTotal === null) return false;
       if (!q) return true;
@@ -44,10 +65,13 @@ export function TablaMovimientos({
         buscarCategoria(m.categoria).nombre.toLowerCase().includes(q)
       );
     });
-  }, [movimientos, busqueda, soloSinCategoria, soloCuotas]);
+  }, [fuente, busqueda, categoria, soloSinCategoria, soloCuotas]);
 
-  const sinCategoria = movimientos.filter((m) => m.categoria === "sin_categoria").length;
-  const enCuotas = movimientos.filter((m) => m.cuotaTotal !== null).length;
+  const sinCategoria = fuente.filter((m) => m.categoria === "sin_categoria").length;
+  const enCuotas = fuente.filter((m) => m.cuotaTotal !== null).length;
+  const total = filtrados.reduce((a, m) => a + m.montoARS, 0);
+  const hayOtrosMeses =
+    movimientosTodos !== undefined && movimientosTodos.length > movimientos.length;
 
   async function asignar(mov: Movimiento, categoriaId: string) {
     // Enseñar el comercio: aplica a todo el histórico, no solo a esta fila.
@@ -101,7 +125,41 @@ export function TablaMovimientos({
             {enCuotas} en cuotas
           </Boton>
         )}
+
+        {hayOtrosMeses && onTodosLosMeses && (
+          <Boton
+            variante={todosLosMeses ? "solido" : "suave"}
+            onClick={() => onTodosLosMeses(!todosLosMeses)}
+          >
+            <CalendarRange className="h-3.5 w-3.5" />
+            Todos los meses
+          </Boton>
+        )}
       </div>
+
+      {/* Se entró desde un gráfico. El chip dice de dónde venís y cuánto suma
+          lo filtrado: sin el total, el número del gráfico y esta lista no se
+          pueden confrontar. */}
+      {categoria && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg px-3 py-2"
+             style={{ background: "color-mix(in oklab, var(--ink-primario) 4%, transparent)" }}>
+          <span aria-hidden className="h-2.5 w-2.5 rounded-full"
+                style={{ background: colorSerie(buscarCategoria(categoria).slot, tema) }} />
+          <span className="text-[13px] font-medium">{buscarCategoria(categoria).nombre}</span>
+          <span className="text-[12.5px]" style={{ color: "var(--ink-mudo)" }}>
+            {filtrados.length} {filtrados.length === 1 ? "movimiento" : "movimientos"} ·{" "}
+            {formatARS(total, { decimales: false })}
+          </span>
+          <button
+            onClick={() => setCategoria(null)}
+            className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[12px] opacity-60 transition-opacity hover:opacity-100"
+            aria-label="Quitar el filtro de categoría"
+          >
+            <X className="h-3 w-3" />
+            Quitar filtro
+          </button>
+        </div>
+      )}
 
       {filtrados.length === 0 ? (
         <p className="py-6 text-center text-[13px]" style={{ color: "var(--ink-mudo)" }}>

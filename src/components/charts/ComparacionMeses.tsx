@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { formatARS } from "@/lib/ingest/numero";
 import { RAMPA_AZUL } from "@/lib/design/paleta";
 import { nombrePeriodo } from "@/lib/utils";
@@ -89,7 +90,16 @@ export function ComparacionMeses({
       <ul className="space-y-3.5">
         {filas.map((f) => (
           <li key={f.id}>
-            <p className="mb-1.5 truncate text-[12.5px] font-medium">{f.nombre}</p>
+            {/* Mismo destino que el Sankey y la torta: el nombre de una
+                categoría lleva siempre a los movimientos que la componen. */}
+            <Link
+              href={`/movimientos?categoria=${f.id}`}
+              className="-mx-1 mb-1.5 block truncate rounded px-1 text-[12.5px] font-medium transition-colors hover:bg-[color-mix(in_oklab,var(--ink-primario)_6%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-1"
+              style={{ outlineColor: "var(--s1)" }}
+              aria-label={`Ver los movimientos de ${f.nombre}`}
+            >
+              {f.nombre}
+            </Link>
             <div className="space-y-1">
               {meses.map((p, i) => (
                 <div key={p} className="flex items-center gap-2">

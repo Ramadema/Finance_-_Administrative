@@ -1,6 +1,7 @@
 "use client";
 
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
+import Link from "next/link";
 import { formatARS } from "@/lib/ingest/numero";
 import { colorSerie, CHROME } from "@/lib/design/paleta";
 import { useTema } from "@/lib/design/useTema";
@@ -43,12 +44,15 @@ export function Torta({ datos }: { datos: GastoPorCategoria[] }) {
       nombre: c.nombre,
       monto: c.monto,
       color: colorSerie(c.slot, tema),
+      // "Otros" no lleva a ningún lado: pliega varias categorías, no es una.
+      categoriaId: c.categoriaId as string | null,
     })),
     ...(montoCola > 0
       ? [{
           nombre: `Otros (${cola.length})`,
           monto: montoCola,
           color: CHROME.neutro[tema],
+          categoriaId: null,
         }]
       : []),
   ];
@@ -95,23 +99,42 @@ export function Torta({ datos }: { datos: GastoPorCategoria[] }) {
       {/* La leyenda es la vista de tabla: nombre, monto y porcentaje en tinta,
           nunca en el color de la serie. */}
       <ul className="w-full min-w-0 flex-1 space-y-1.5">
-        {porciones.map((p) => (
-          <li key={p.nombre} className="flex items-baseline gap-2">
-            <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-[3px]"
-                  style={{ background: p.color }} />
-            <span className="min-w-0 flex-1 truncate text-[13px]"
-                  style={{ color: "var(--ink-secundario)" }}>
-              {p.nombre}
-            </span>
-            <span className="tabular shrink-0 text-[13px] font-medium">
-              {formatARS(p.monto, { decimales: false })}
-            </span>
-            <span className="tabular w-[38px] shrink-0 text-right text-[12px]"
-                  style={{ color: "var(--ink-mudo)" }}>
-              {Math.round(pct(p.monto))}%
-            </span>
-          </li>
-        ))}
+        {porciones.map((p) => {
+          const fila = (
+            <>
+              <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-[3px]"
+                    style={{ background: p.color }} />
+              <span className="min-w-0 flex-1 truncate text-[13px]"
+                    style={{ color: "var(--ink-secundario)" }}>
+                {p.nombre}
+              </span>
+              <span className="tabular shrink-0 text-[13px] font-medium">
+                {formatARS(p.monto, { decimales: false })}
+              </span>
+              <span className="tabular w-[38px] shrink-0 text-right text-[12px]"
+                    style={{ color: "var(--ink-mudo)" }}>
+                {Math.round(pct(p.monto))}%
+              </span>
+            </>
+          );
+
+          return (
+            <li key={p.nombre}>
+              {p.categoriaId ? (
+                <Link
+                  href={`/movimientos?categoria=${p.categoriaId}`}
+                  className="-mx-2 flex items-baseline gap-2 rounded-lg px-2 py-0.5 transition-colors hover:bg-[color-mix(in_oklab,var(--ink-primario)_6%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-1"
+                  style={{ outlineColor: "var(--s1)" }}
+                  aria-label={`Ver los movimientos de ${p.nombre}`}
+                >
+                  {fila}
+                </Link>
+              ) : (
+                <span className="flex items-baseline gap-2 py-0.5">{fila}</span>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
