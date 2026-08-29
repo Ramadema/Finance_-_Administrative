@@ -246,6 +246,28 @@ export async function importarJSON(texto: string): Promise<{ ok: boolean; error?
   return { ok: true };
 }
 
+/**
+ * Le pide al navegador que NO desaloje la base.
+ *
+ * Por defecto IndexedDB es "best effort": si al dispositivo le falta espacio, el
+ * navegador puede borrarla sin avisar y sin que la app se entere. `persist()` la
+ * marca como durable.
+ *
+ * Devuelve el estado en vez de tragárselo porque la respuesta cambia qué tan
+ * grave es no tener respaldo: Chrome la concede según el uso del sitio, Firefox
+ * pregunta, y en incógnito siempre es que no. Si no hay persistencia, el JSON es
+ * la única copia que sobrevive.
+ */
+export async function asegurarPersistencia(): Promise<boolean | null> {
+  if (typeof navigator === "undefined" || !navigator.storage?.persist) return null;
+  try {
+    if (await navigator.storage.persisted()) return true;
+    return await navigator.storage.persist();
+  } catch {
+    return null; // algunos navegadores tiran en contextos no seguros
+  }
+}
+
 export async function borrarTodo(): Promise<void> {
   await db().transaction("rw",
     [db().movimientos, db().importaciones, db().comercios, db().reglas, db().presupuestos,

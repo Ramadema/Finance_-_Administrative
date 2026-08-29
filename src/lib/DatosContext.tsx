@@ -4,7 +4,7 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useState,
 } from "react";
 import { db, type Movimiento, type IngresoManual } from "./db/esquema";
-import { mapaIngresos, todaLaConfig } from "./db/repo";
+import { asegurarPersistencia, mapaIngresos, todaLaConfig } from "./db/repo";
 import {
   resumenDe, gastoPorCategoria, gastoDiario, gastoFueraDelMes, cuotasComprometidas, serieMensual,
   naturalezasDe, perfiles as perfilesDe, flujoSankey, variacionPorCategoria,
@@ -31,6 +31,11 @@ export interface Datos {
   setPeriodo: (p: string) => void;
   ingresosPorPeriodo: Map<string, number>;
   ahorroAcumulado: number;
+  /**
+   * Si el navegador se comprometió a no desalojar la base.
+   * `null` = no se puede saber (el navegador no expone la API).
+   */
+  persistente: boolean | null;
 
   resumen: ResumenPeriodo | null;
   previo: ResumenPeriodo | null;
@@ -68,6 +73,7 @@ export function DatosProvider({ children }: { children: React.ReactNode }) {
   const [ingresosPorPeriodo, setIngresos] = useState<Map<string, number>>(new Map());
   const [ahorroAcumulado, setAhorroAcumulado] = useState(0);
   const [periodoSel, setPeriodo] = useState<string | null>(null);
+  const [persistente, setPersistente] = useState<boolean | null>(null);
 
   const recargar = useCallback(async () => {
     const [ms, ing, cfg] = await Promise.all([
@@ -80,6 +86,12 @@ export function DatosProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => { void recargar(); }, [recargar]);
+
+  // Se pide una sola vez al arrancar. Si el navegador dice que no, el usuario
+  // tiene que enterarse: sin persistencia el respaldo deja de ser opcional.
+  useEffect(() => {
+    void asegurarPersistencia().then(setPersistente);
+  }, []);
 
   const periodos = useMemo(
     () => [...new Set(movimientos.map((m) => m.periodo))].sort(),
@@ -137,7 +149,7 @@ export function DatosProvider({ children }: { children: React.ReactNode }) {
 
   const valor: Datos = {
     cargando, movimientos, periodos, periodo, setPeriodo,
-    ingresosPorPeriodo, ahorroAcumulado, recargar, ...derivado,
+    ingresosPorPeriodo, ahorroAcumulado, persistente, recargar, ...derivado,
   };
 
   return <Ctx.Provider value={valor}>{children}</Ctx.Provider>;

@@ -1,14 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Moon, Sun, Download, Upload as UploadIcon, Wallet, ChevronDown } from "lucide-react";
+import { Moon, Sun, Download, Upload as UploadIcon, Wallet, ChevronDown, Trash2, ShieldAlert } from "lucide-react";
 import { DatosProvider, useDatos } from "@/lib/DatosContext";
-import { exportarJSON, importarJSON } from "@/lib/db/repo";
+import { borrarTodo, exportarJSON, importarJSON } from "@/lib/db/repo";
 import { alternarTema, useTema } from "@/lib/design/useTema";
 import { nombrePeriodo } from "@/lib/utils";
 import { NavLateral, NavInferior, SECCIONES } from "./Nav";
 import { Boton } from "./ui/Boton";
+import { Confirmar } from "./ui/Confirmar";
 
 /**
  * Estructura de la app: sidebar en desktop, barra inferior en mobile.
@@ -24,7 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function Marco({ children }: { children: React.ReactNode }) {
-  const { cargando, movimientos } = useDatos();
+  const { cargando, movimientos, persistente } = useDatos();
   const pathname = usePathname();
   const seccion = SECCIONES.find((s) => s.href === pathname);
 
@@ -34,6 +36,25 @@ function Marco({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto max-w-[1400px] px-4 sm:px-6">
       <Encabezado />
+
+      {/* El navegador dijo explícitamente que puede desalojar la base. Callarlo
+          sería peor: es el único aviso antes de perder todo el histórico. */}
+      {!vacia && persistente === false && (
+        <p
+          className="mb-4 flex items-start gap-2 rounded-lg px-3 py-2 text-[12.5px] leading-relaxed"
+          style={{
+            background: "color-mix(in oklab, var(--advertencia) 14%, transparent)",
+            color: "var(--ink-secundario)",
+          }}
+        >
+          <ShieldAlert className="mt-px h-4 w-4 shrink-0" style={{ color: "var(--advertencia)" }} />
+          <span>
+            Tu navegador no se comprometió a conservar estos datos: si le falta espacio
+            puede borrarlos. Bajá un respaldo con el botón{" "}
+            <Download className="inline h-3.5 w-3.5 align-text-bottom" /> del encabezado.
+          </span>
+        </p>
+      )}
 
       {vacia ? (
         <main className="pb-16">{children}</main>
@@ -60,8 +81,9 @@ function Marco({ children }: { children: React.ReactNode }) {
 }
 
 function Encabezado() {
-  const { periodos, periodo, setPeriodo, recargar } = useDatos();
+  const { periodos, periodo, setPeriodo, movimientos, recargar } = useDatos();
   const tema = useTema();
+  const [confirmando, setConfirmando] = useState(false);
 
   async function descargar() {
     const json = await exportarJSON();
@@ -77,6 +99,12 @@ function Encabezado() {
     const r = await importarJSON(await archivo.text());
     if (r.ok) await recargar();
     else alert(r.error);
+  }
+
+  async function borrar() {
+    await borrarTodo();
+    setConfirmando(false);
+    await recargar();
   }
 
   return (
@@ -134,10 +162,42 @@ function Encabezado() {
                  }} />
         </label>
 
+        {movimientos.length > 0 && (
+          <Boton
+            variante="fantasma"
+            onClick={() => setConfirmando(true)}
+            title="Borrar todos los datos"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Boton>
+        )}
+
         <Boton variante="fantasma" onClick={alternarTema} title="Cambiar tema">
           {tema === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Boton>
       </div>
+
+      <Confirmar
+        abierto={confirmando}
+        onAbierto={setConfirmando}
+        titulo="¿Borrar todos tus datos?"
+        textoConfirmar="Borrar todo"
+        onConfirmar={borrar}
+        extra={
+          <Boton onClick={descargar} className="mr-auto">
+            <Download className="h-4 w-4" /> Bajar respaldo
+          </Boton>
+        }
+      >
+        <p>
+          Se borran los {movimientos.length} movimientos importados, las categorías que
+          le enseñaste, tus ingresos y tus reglas.
+        </p>
+        <p>
+          No se puede deshacer: los datos viven solo en este navegador, así que no hay
+          copia en ningún otro lado. Si querés conservarlos, bajá el respaldo primero.
+        </p>
+      </Confirmar>
     </header>
   );
 }
