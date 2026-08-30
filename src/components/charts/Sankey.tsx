@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { sankey, sankeyLinkHorizontal, sankeyJustify } from "d3-sankey";
 import { formatARS, formatCompacto } from "@/lib/ingest/numero";
 import { colorSerie, CHROME } from "@/lib/design/paleta";
@@ -44,7 +45,17 @@ interface EnlaceD3 {
 
 export function Sankey({ flujo }: { flujo: FlujoSankey }) {
   const tema = useTema();
+  const router = useRouter();
   const [activo, setActivo] = useState<number | null>(null);
+
+  /**
+   * Los nodos de categoría llevan al detalle. Ver "Gastronomía $289k" invita
+   * directamente a "¿de qué está hecho?", y hasta ahora había que ir a
+   * Movimientos y filtrar a mano. "Otros" no lleva a ningún lado: es un pliegue
+   * de varias categorías, no una.
+   */
+  const categoriaDe = (id: string): string | null =>
+    id.startsWith("cat:") && id !== "cat:__otros" ? id.slice(4) : null;
 
   const colorDe = useMemo(
     () => (n: NodoD3): string => {
@@ -118,12 +129,32 @@ export function Sankey({ flujo }: { flujo: FlujoSankey }) {
             const alto = (n.y1 ?? 0) - (n.y0 ?? 0);
             const izquierda = n.nivel === 2;
             const atenuado = activo !== null && activo !== n.index;
+            const categoria = categoriaDe(n.id);
+            const irAlDetalle = categoria
+              ? () => router.push(`/movimientos?categoria=${categoria}`)
+              : undefined;
             return (
               <g
                 key={n.id}
                 onMouseEnter={() => setActivo(n.index ?? null)}
                 onMouseLeave={() => setActivo(null)}
-                style={{ opacity: atenuado ? 0.38 : 1, transition: "opacity 160ms" }}
+                onClick={irAlDetalle}
+                onKeyDown={(e) => {
+                  if (irAlDetalle && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    irAlDetalle();
+                  }
+                }}
+                tabIndex={irAlDetalle ? 0 : undefined}
+                role={irAlDetalle ? "link" : undefined}
+                aria-label={
+                  irAlDetalle ? `Ver los movimientos de ${n.nombre}` : undefined
+                }
+                style={{
+                  opacity: atenuado ? 0.38 : 1,
+                  transition: "opacity 160ms",
+                  cursor: irAlDetalle ? "pointer" : "default",
+                }}
               >
                 <rect
                   x={n.x0} y={n.y0}
@@ -132,7 +163,10 @@ export function Sankey({ flujo }: { flujo: FlujoSankey }) {
                   fill={colorDe(n)}
                   rx={3}
                 >
-                  <title>{`${n.nombre}: ${formatARS(n.value ?? 0, { decimales: false })}`}</title>
+                  <title>
+                    {`${n.nombre}: ${formatARS(n.value ?? 0, { decimales: false })}` +
+                      (categoria ? " — clic para ver el detalle" : "")}
+                  </title>
                 </rect>
                 <text
                   x={izquierda ? (n.x0 ?? 0) - 8 : (n.x1 ?? 0) + 8}
@@ -142,7 +176,16 @@ export function Sankey({ flujo }: { flujo: FlujoSankey }) {
                   fontSize={11.5}
                   fill={ink}
                   fontWeight={n.nivel === 0 ? 600 : 500}
-                  style={{ pointerEvents: "none" }}
+                  /* La etiqueta es el blanco natural: es más grande que la
+                     barra y es lo que uno lee. Dejarla inerte obligaba a
+                     apuntarle a una barra de 12px de ancho. Las que no llevan
+                     a ningún lado siguen sin recibir el mouse, para no comerle
+                     el hover a la barra. */
+                  style={{
+                    pointerEvents: categoria ? "auto" : "none",
+                    textDecoration: categoria && activo === n.index ? "underline" : "none",
+                    textUnderlineOffset: 3,
+                  }}
                 >
                   {n.nombre}
                   <tspan fill={inkMudo} fontWeight={400}>
