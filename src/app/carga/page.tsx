@@ -8,6 +8,7 @@ import type { Importacion } from "@/lib/db/esquema";
 import { ZonaCarga } from "@/components/ZonaCarga";
 import { Card, CardHead } from "@/components/ui/Card";
 import { Confirmar } from "@/components/ui/Confirmar";
+import { RespaldoDrive } from "@/components/RespaldoDrive";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { formatARS } from "@/lib/ingest/numero";
 import { nombrePeriodo } from "@/lib/utils";
@@ -125,6 +126,14 @@ export default function Carga() {
             ))}
           </ul>
         )}
+      </Card>
+
+      <Card>
+        <CardHead
+          titulo="Tus datos en Google Drive"
+          sub="Para no depender del navegador y poder abrir la app desde otro dispositivo"
+        />
+        <RespaldoDrive />
       </Card>
 
       <Confirmar
