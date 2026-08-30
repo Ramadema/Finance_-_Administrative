@@ -176,7 +176,16 @@ export function Sankey({ flujo }: { flujo: FlujoSankey }) {
                   fontSize={11.5}
                   fill={ink}
                   fontWeight={n.nivel === 0 ? 600 : 500}
-                  style={{ pointerEvents: "none" }}
+                  /* La etiqueta es el blanco natural: es más grande que la
+                     barra y es lo que uno lee. Dejarla inerte obligaba a
+                     apuntarle a una barra de 12px de ancho. Las que no llevan
+                     a ningún lado siguen sin recibir el mouse, para no comerle
+                     el hover a la barra. */
+                  style={{
+                    pointerEvents: categoria ? "auto" : "none",
+                    textDecoration: categoria && activo === n.index ? "underline" : "none",
+                    textUnderlineOffset: 3,
+                  }}
                 >
                   {n.nombre}
                   <tspan fill={inkMudo} fontWeight={400}>
