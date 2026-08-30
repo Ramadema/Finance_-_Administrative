@@ -1,4 +1,4 @@
-import { clave, titulizar } from "./normalizar";
+import { clave, incluyeTolerante, titulizar } from "./normalizar";
 import { SEMILLA_ORDENADA } from "./semilla";
 
 /**
@@ -62,7 +62,8 @@ export function clasificar(
         matchea = false; // regex rota del usuario: se ignora, no rompe el import
       }
     } else {
-      matchea = cruda.includes(r.patron.toUpperCase()) || k.includes(r.patron.toUpperCase());
+      const patron = r.patron.toUpperCase();
+      matchea = incluyeTolerante(cruda, patron) || incluyeTolerante(k, patron);
     }
     if (matchea) {
       return {
@@ -91,16 +92,37 @@ export function clasificar(
 
   // ---- Capa 3: diccionario semilla (más específico primero) ----
   for (const e of SEMILLA_ORDENADA) {
-    if (k.includes(e.patron)) {
+    if (!incluyeTolerante(k, e.patron)) continue;
+
+    // La clave pasa a ser el nombre canónico, no el texto del banco.
+    //
+    // BBVA trunca el campo distinto cada mes: el mismo Game Pass sale
+    // "MICROSOFT*PC GAME PASS" y "Microsoft*PC Gam Microsoft*PC". Agrupando por
+    // el texto crudo son dos comercios, y una suscripción que aparece una sola
+    // vez por mes bajo dos nombres nunca se detecta como gasto fijo.
+    const kCanonica = clave(e.comercio) || k;
+
+    // Si ya recategorizaste el grupo, tu decisión manda sobre la semilla.
+    const delGrupo = ctx.memoria?.get(kCanonica);
+    if (delGrupo) {
       return {
-        categoria: e.categoria,
-        subcategoria: e.subcategoria ?? null,
-        comercio: e.comercio,
-        claveComercio: k,
-        fuente: "semilla",
-        confianza: 0.8,
+        categoria: delGrupo.categoria,
+        subcategoria: delGrupo.subcategoria,
+        comercio: delGrupo.comercio,
+        claveComercio: kCanonica,
+        fuente: "memoria",
+        confianza: 1,
       };
     }
+
+    return {
+      categoria: e.categoria,
+      subcategoria: e.subcategoria ?? null,
+      comercio: e.comercio,
+      claveComercio: kCanonica,
+      fuente: "semilla",
+      confianza: 0.8,
+    };
   }
 
   // ---- Capa 4: nadie sabe ----

@@ -135,6 +135,11 @@ body {
   border: 1px solid var(--borde);
   border-radius: var(--radius-card);
   box-shadow: var(--sombra-card);
+  /* Columna flex: cuando dos tarjetas comparten fila, la más corta se estira
+     al alto de la otra y su contenido reparte el sobrante en vez de dejar un
+     hueco colgando abajo. */
+  display: flex;
+  flex-direction: column;
 }
 
 /* Textura sutil de fondo — le da profundidad sin ruido visual. */

@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { formatARS } from "@/lib/ingest/numero";
 import { RAMPA_AZUL, CHROME } from "@/lib/design/paleta";
 import { useTema } from "@/lib/design/useTema";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 /**
  * Calendario de gasto diario del mes.
@@ -15,6 +16,7 @@ import { useTema } from "@/lib/design/useTema";
  */
 
 const DIAS = ["L", "M", "M", "J", "V", "S", "D"];
+const DIAS_LARGOS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
 export function Calendario({
   gastoPorDia, periodo,
@@ -32,14 +34,16 @@ export function Calendario({
     const primerDia = (new Date(anio, mes - 1, 1).getDay() + 6) % 7;
 
     const valores: number[] = [];
-    const celdas: ({ fecha: string; dia: number; monto: number } | null)[] = [];
+    const celdas: (
+      { fecha: string; dia: number; monto: number; diaSemana: number } | null
+    )[] = [];
     for (let i = 0; i < primerDia; i++) celdas.push(null);
 
     for (let d = 1; d <= diasEnMes; d++) {
       const fecha = `${anio}-${String(mes).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
       const monto = gastoPorDia.get(fecha) ?? 0;
       if (monto > 0) valores.push(monto);
-      celdas.push({ fecha, dia: d, monto });
+      celdas.push({ fecha, dia: d, monto, diaSemana: (primerDia + d - 1) % 7 });
     }
 
     // Cortes por cuantiles sobre los días CON gasto.
@@ -78,23 +82,28 @@ export function Calendario({
           if (!c) return <div key={`v${i}`} />;
           const n = nivel(c.monto);
           const intenso = n >= 3;
+          const etiqueta =
+            c.monto > 0
+              ? `${DIAS_LARGOS[c.diaSemana]} ${c.dia} · ${formatARS(c.monto, { decimales: false })}`
+              : `${DIAS_LARGOS[c.diaSemana]} ${c.dia} · sin gastos`;
           return (
-            <div
-              key={c.fecha}
-              title={
-                c.monto > 0
-                  ? `${c.dia} — ${formatARS(c.monto, { decimales: false })}`
-                  : `${c.dia} — sin gastos`
-              }
-              className="relative flex aspect-square items-center justify-center rounded-[7px] text-[10.5px] font-medium transition-transform duration-150 hover:scale-[1.07]"
-              style={{
-                background: n < 0 ? vacio : pasos[n],
-                color: n < 0 ? CHROME.inkMudo[tema] : intenso ? "#fff" : "#0b0b0b",
-                border: `1px solid ${n < 0 ? "transparent" : "color-mix(in oklab, #000 8%, transparent)"}`,
-              }}
-            >
-              {c.dia}
-            </div>
+            <Tooltip key={c.fecha} texto={etiqueta} lado="top">
+              <div
+                /* `tabIndex` para que el dato también salga con teclado: el
+                   color solo dice "más" o "menos", nunca cuánto. */
+                tabIndex={0}
+                aria-label={etiqueta}
+                className="relative flex aspect-square cursor-default items-center justify-center rounded-[7px] text-[10.5px] font-medium transition-transform duration-150 hover:scale-[1.07] focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{
+                  background: n < 0 ? vacio : pasos[n],
+                  color: n < 0 ? CHROME.inkMudo[tema] : intenso ? "#fff" : "#0b0b0b",
+                  border: `1px solid ${n < 0 ? "transparent" : "color-mix(in oklab, #000 8%, transparent)"}`,
+                  outlineColor: "var(--s1)",
+                }}
+              >
+                {c.dia}
+              </div>
+            </Tooltip>
           );
         })}
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, CircleHelp, EyeOff, Check } from "lucide-react";
+import { Search, CircleHelp, EyeOff, Check, CalendarClock } from "lucide-react";
 import { formatARS, formatUSD } from "@/lib/ingest/numero";
 import { colorSerie } from "@/lib/design/paleta";
 import { CATEGORIAS, categoria as buscarCategoria } from "@/lib/categorize/categorias";
@@ -9,6 +9,7 @@ import { useTema } from "@/lib/design/useTema";
 import { recategorizarComercio, editarMovimiento } from "@/lib/db/repo";
 import type { Movimiento } from "@/lib/db/esquema";
 import { Boton } from "./ui/Boton";
+import { Tooltip } from "./ui/Tooltip";
 
 /**
  * Tabla de movimientos: el detalle auditable de todo.
@@ -28,12 +29,14 @@ export function TablaMovimientos({
   const tema = useTema();
   const [busqueda, setBusqueda] = useState("");
   const [soloSinCategoria, setSoloSinCategoria] = useState(false);
+  const [soloCuotas, setSoloCuotas] = useState(false);
   const [editando, setEditando] = useState<string | null>(null);
 
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return movimientos.filter((m) => {
       if (soloSinCategoria && m.categoria !== "sin_categoria") return false;
+      if (soloCuotas && m.cuotaTotal === null) return false;
       if (!q) return true;
       return (
         m.comercio.toLowerCase().includes(q) ||
@@ -41,9 +44,10 @@ export function TablaMovimientos({
         buscarCategoria(m.categoria).nombre.toLowerCase().includes(q)
       );
     });
-  }, [movimientos, busqueda, soloSinCategoria]);
+  }, [movimientos, busqueda, soloSinCategoria, soloCuotas]);
 
   const sinCategoria = movimientos.filter((m) => m.categoria === "sin_categoria").length;
+  const enCuotas = movimientos.filter((m) => m.cuotaTotal !== null).length;
 
   async function asignar(mov: Movimiento, categoriaId: string) {
     // Enseñar el comercio: aplica a todo el histórico, no solo a esta fila.
@@ -82,6 +86,19 @@ export function TablaMovimientos({
           >
             <CircleHelp className="h-3.5 w-3.5" />
             {sinCategoria} sin categorizar
+          </Boton>
+        )}
+
+        {/* Las cuotas no son una categoría —son una forma de pago, y la compra
+            sigue siendo lo que compraste— así que se filtran por el dato que ya
+            trae el banco en vez de meterlas en un cajón aparte. */}
+        {enCuotas > 0 && (
+          <Boton
+            variante={soloCuotas ? "solido" : "suave"}
+            onClick={() => setSoloCuotas((v) => !v)}
+          >
+            <CalendarClock className="h-3.5 w-3.5" />
+            {enCuotas} en cuotas
           </Boton>
         )}
       </div>
@@ -185,13 +202,22 @@ export function TablaMovimientos({
                     </td>
 
                     <td className="py-2 pl-2">
-                      <button
-                        onClick={() => void alternarExcluido(m)}
-                        title={m.excluido ? "Volver a incluir" : "Excluir del análisis"}
-                        className="rounded p-1 opacity-40 transition-opacity hover:opacity-100"
+                      <Tooltip
+                        lado="left"
+                        texto={
+                          m.excluido
+                            ? "Volver a incluirlo en el análisis"
+                            : "Excluirlo del análisis sin borrarlo"
+                        }
                       >
-                        <EyeOff className="h-3.5 w-3.5" />
-                      </button>
+                        <button
+                          onClick={() => void alternarExcluido(m)}
+                          aria-label={m.excluido ? "Volver a incluir" : "Excluir del análisis"}
+                          className="rounded p-1 opacity-40 transition-opacity hover:opacity-100"
+                        >
+                          <EyeOff className="h-3.5 w-3.5" />
+                        </button>
+                      </Tooltip>
                     </td>
                   </tr>
                 );

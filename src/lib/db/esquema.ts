@@ -1,5 +1,5 @@
 import Dexie, { type Table } from "dexie";
-import type { FuenteCategoria, Regla } from "../categorize/motor";
+import { clasificar, type FuenteCategoria, type Regla } from "../categorize/motor";
 
 /**
  * Base local en IndexedDB. Tus movimientos no salen de este navegador.
@@ -23,13 +23,28 @@ export interface Importacion {
   advertencias: string[];
 }
 
+/**
+ * `importacionId` de los movimientos que genera un gasto fijo cargado a mano.
+ * Los separa de los que vinieron de un archivo del banco.
+ */
+export const ORIGEN_FIJO = "fijo";
+
 export interface Movimiento {
   id: string;
   importacionId: string;
-  /** ISO "2026-08-05". Ordenable como texto. */
+  /** Fecha de COMPRA, ISO "2026-08-05". Ordenable como texto. */
   fecha: string;
-  /** "2026-08" */
+  /**
+   * Mes del RESUMEN que lo cobra, "2026-08". No siempre es el mes de `fecha`:
+   * la cuota 3/12 de una compra de mayo la pagás en julio, y BBVA repite la
+   * fecha de la compra original en cada cuota. Todo lo mensual agrupa por acá.
+   */
   periodo: string;
+  /**
+   * El banco no trajo fecha (la exporta como 01/01/0001) y se le asignó la del
+   * cierre del resumen. Pasa con ajustes y devoluciones.
+   */
+  fechaEstimada: boolean;
   /** Tal cual lo emitió el banco. Intocable. */
   descripcionCruda: string;
   claveComercio: string;
@@ -58,6 +73,55 @@ export interface ComercioMemorizado {
   actualizado: string;
 }
 
+/**
+ * Ingreso cargado a mano.
+ *
+ * El resumen de tarjeta de BBVA no trae ingresos — solo consumos. Sin esto, la
+ * app puede decirte cuánto gastás pero nunca cuánto te sobra, que es justamente
+ * la pregunta que importa.
+ */
+export interface IngresoManual {
+  id: string;
+  /** "2026-08" */
+  periodo: string;
+  concepto: string;
+  monto: number;
+  /** Marca de dónde salió, para poder deshacer un "repetir hacia adelante". */
+  origen: "manual" | "repetido";
+}
+
+/**
+ * Gasto fijo cargado a mano.
+ *
+ * El alquiler, la facultad y la prepaga no pasan por la tarjeta —salen por
+ * débito o transferencia— así que el resumen de BBVA no los ve. Sin esto, el
+ * "piso mensual" que muestra la app deja afuera justo los gastos más grandes y
+ * la capacidad de ahorro sale inflada.
+ *
+ * No es una categoría aparte: cada uno se guarda con su categoría real
+ * (alquiler → Servicios/Alquiler, facultad → Servicios/Educación). "Fijo" no se
+ * etiqueta, se detecta — y uno que se repite todos los meses con el mismo monto
+ * cae solo en el detector de recurrencia.
+ */
+export interface GastoFijo {
+  id: string;
+  /** "Alquiler", "Facultad". Es también el nombre que se ve en la tabla. */
+  concepto: string;
+  monto: number;
+  categoria: string;
+  subcategoria: string | null;
+  /** Primer período en que corre, "2026-06". */
+  desde: string;
+  /** Último período, o null si sigue vigente. */
+  hasta: string | null;
+}
+
+/** Metas y parámetros que el usuario configura. */
+export interface Config {
+  clave: string;
+  valor: number | string | boolean | null;
+}
+
 export interface Presupuesto {
   id: string;
   categoria: string;
@@ -76,6 +140,9 @@ export class FinanzasDB extends Dexie {
   reglas!: Table<Regla, string>;
   presupuestos!: Table<Presupuesto, string>;
   ajustes!: Table<Ajuste, string>;
+  ingresos!: Table<IngresoManual, string>;
+  gastosFijos!: Table<GastoFijo, string>;
+  config!: Table<Config, string>;
 
   constructor() {
     super("finanzas");
@@ -86,6 +153,89 @@ export class FinanzasDB extends Dexie {
       reglas: "id, prioridad",
       presupuestos: "id, categoria",
       ajustes: "clave",
+    });
+
+    // v2: ingresos manuales y configuración de metas.
+    this.version(2).stores({
+      importaciones: "id, hashArchivo, periodo, fechaImport",
+      movimientos: "id, periodo, fecha, categoria, claveComercio, importacionId, excluido",
+      comercios: "clave, categoria",
+      reglas: "id, prioridad",
+      presupuestos: "id, categoria",
+      ajustes: "clave",
+      ingresos: "id, periodo",
+      config: "clave",
+    });
+
+    // v3: `fechaEstimada` en los movimientos. Los que ya estaban guardados
+    // traían fecha del banco sí o sí, así que arrancan en false.
+    this.version(3)
+      .stores({
+        importaciones: "id, hashArchivo, periodo, fechaImport",
+        movimientos: "id, periodo, fecha, categoria, claveComercio, importacionId, excluido",
+        comercios: "clave, categoria",
+        reglas: "id, prioridad",
+        presupuestos: "id, categoria",
+        ajustes: "clave",
+        ingresos: "id, periodo",
+        config: "clave",
+      })
+      .upgrade((tx) =>
+        tx
+          .table<Movimiento>("movimientos")
+          .toCollection()
+          .modify((m) => {
+            m.fechaEstimada = m.fechaEstimada ?? false;
+          }),
+      );
+
+    // v4: "Ocio y viajes" se parte en "Viajes" y "Joda y ocio". Lo ya guardado
+    // apunta al id viejo, que dejó de existir: sin remapear, `categoria()` lo
+    // manda a "Sin categorizar" y los números del mes cambian solos, sin que
+    // nada en pantalla lo explique.
+    //
+    // Se reclasifica con la semilla nueva, que ya sabe que un cine es joda y
+    // una aerolínea es viaje. Lo que no reconoce cae en "joda": sacando los
+    // viajes —que casi siempre matchean, Despegar, Aerolíneas, Booking— era el
+    // resto del cajón viejo.
+    this.version(4).upgrade(async (tx) => {
+      const destino = (descripcion: string) => {
+        const c = clasificar(descripcion);
+        return c.categoria === "viajes" || c.categoria === "joda"
+          ? { categoria: c.categoria, subcategoria: c.subcategoria }
+          : { categoria: "joda", subcategoria: null };
+      };
+
+      await tx
+        .table<Movimiento>("movimientos")
+        .where("categoria")
+        .equals("ocio")
+        .modify((m) => {
+          Object.assign(m, destino(m.descripcionCruda));
+        });
+
+      // La memoria también: si queda apuntando a "ocio", el próximo import
+      // vuelve a escribir la categoría muerta encima de la nueva.
+      await tx
+        .table<ComercioMemorizado>("comercios")
+        .where("categoria")
+        .equals("ocio")
+        .modify((c) => {
+          Object.assign(c, destino(c.clave));
+        });
+    });
+
+    // v5: gastos fijos cargados a mano.
+    this.version(5).stores({
+      importaciones: "id, hashArchivo, periodo, fechaImport",
+      movimientos: "id, periodo, fecha, categoria, claveComercio, importacionId, excluido",
+      comercios: "clave, categoria",
+      reglas: "id, prioridad",
+      presupuestos: "id, categoria",
+      ajustes: "clave",
+      ingresos: "id, periodo",
+      config: "clave",
+      gastosFijos: "id, categoria, desde",
     });
   }
 }

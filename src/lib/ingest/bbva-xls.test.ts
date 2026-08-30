@@ -28,8 +28,10 @@ describe("parsearBBVATarjeta — archivo real de BBVA", () => {
     expect(res.origen).toBe("bbva-tarjeta-xls");
   });
 
-  it("saca el período del nombre de hoja", () => {
-    expect(res.periodo).toBe("2026-08"); // Mov_Periodo_28-08-2026
+  it("sin movimientos no inventa período", () => {
+    // El nombre de hoja trae la fecha de DESCARGA, no el período del resumen.
+    // Usarlo haría que dos resúmenes bajados el mismo día colapsen en un mes.
+    expect(res.periodo).toBeNull();
   });
 
   it("lee la fila de total como checksum", () => {
@@ -155,5 +157,112 @@ describe("parsearBBVATarjeta — detección de errores", () => {
     const res = parsearBBVATarjeta(new Uint8Array([1, 2, 3, 4]).buffer);
     expect(res.error).toBeTruthy();
     expect(res.movimientos).toHaveLength(0);
+  });
+});
+
+describe("parsearBBVATarjeta — rarezas que solo aparecen en resúmenes reales", () => {
+  it("asigna cada consumo a la tarjeta que cierra su sección", () => {
+    // La columna \"Nro. Tarjeta\" viene vacía en los consumos: el número está
+    // en la fila de subtotal, DESPUÉS de ellos.
+    const res = parsearBBVATarjeta(
+      xlsFalso([
+        HEADER,
+        ["", "05/07/2026", "COMERCIO A", "/", "10.000,00", ""],
+        ["", "06/07/2026", "COMERCIO B", "/", "5.000,00", ""],
+        ["Total Tarjeta Nro ****8423", "", "", "", "15.000,00", "0,00"],
+        ["", "07/07/2026", "COMERCIO C", "/", "2.000,00", ""],
+        ["Total Tarjeta Nro ****7527", "", "", "", "2.000,00", "0,00"],
+        ["", "", "Monto total de los Movimientos del período", "", "17.000,00", "0,00"],
+      ]),
+    );
+
+    expect(res.movimientos.map((m) => m.nroTarjeta)).toEqual([
+      "****8423", "****8423", "****7527",
+    ]);
+    expect(res.subtotales).toHaveLength(2);
+    expect(res.subtotales.every((s) => s.cuadra)).toBe(true);
+    expect(res.validacion.cuadra).toBe(true);
+  });
+
+  it("la fila de subtotal no se cuenta como movimiento ni como error", () => {
+    const res = parsearBBVATarjeta(
+      xlsFalso([
+        HEADER,
+        ["", "05/07/2026", "COMERCIO A", "/", "10.000,00", ""],
+        ["Total Tarjeta Nro ****8423", "", "", "", "10.000,00", "0,00"],
+        ["", "", "Monto total de los Movimientos del período", "", "10.000,00", "0,00"],
+      ]),
+    );
+    expect(res.movimientos).toHaveLength(1);
+    expect(res.advertencias).toHaveLength(0);
+  });
+
+  it("avisa cuando el subtotal de una tarjeta no cuadra con sus consumos", () => {
+    const res = parsearBBVATarjeta(
+      xlsFalso([
+        HEADER,
+        ["", "05/07/2026", "COMERCIO A", "/", "10.000,00", ""],
+        ["Total Tarjeta Nro ****8423", "", "", "", "99.999,00", "0,00"],
+      ]),
+    );
+    expect(res.subtotales[0].cuadra).toBe(false);
+    expect(res.advertencias.join(" ")).toMatch(/subtotal de la tarjeta/i);
+  });
+
+  it("01/01/0001 no es una fecha: no inventa un período de 2001", () => {
+    const res = parsearBBVATarjeta(
+      xlsFalso([
+        HEADER,
+        ["", "05/07/2026", "COMERCIO A", "/", "10.000,00", ""],
+        ["", "01/01/0001", "", "/", "-2.000,00", ""],
+        ["", "", "Monto total de los Movimientos del período", "", "8.000,00", "0,00"],
+      ]),
+    );
+
+    const ajuste = res.movimientos[1];
+    expect(ajuste.fechaEstimada).toBe(true);
+    expect(ajuste.fecha.getFullYear()).toBe(2026); // el cierre, no el año 1
+    expect(res.movimientos.every((m) => m.fecha.getFullYear() === 2026)).toBe(true);
+    expect(res.advertencias.join(" ")).toMatch(/sin fecha/i);
+  });
+
+  it("respeta el signo: una devolución resta y el checksum cuadra", () => {
+    const res = parsearBBVATarjeta(
+      xlsFalso([
+        HEADER,
+        ["", "05/07/2026", "COMERCIO A", "/", "10.000,00", ""],
+        ["", "06/07/2026", "DEVOLUCION", "/", "-2.000,00", ""],
+        ["", "", "Monto total de los Movimientos del período", "", "8.000,00", "0,00"],
+      ]),
+    );
+    expect(res.movimientos[1].importeARS).toBe(-2000);
+    expect(res.totalCalculado.ars).toBe(8000);
+    expect(res.validacion.cuadra).toBe(true);
+  });
+
+  it("el período sale de los consumos, no del nombre de hoja", () => {
+    // Hoja fechada en agosto, consumos de junio: es el resumen de junio.
+    const res = parsearBBVATarjeta(
+      xlsFalso(
+        [
+          HEADER,
+          ["", "10/06/2026", "COMERCIO A", "/", "1.000,00", ""],
+          ["", "20/06/2026", "COMERCIO B", "/", "1.000,00", ""],
+          ["", "02/07/2026", "PERCEPCION", "/", "100,00", ""],
+          ["", "14/05/2026", "CUOTA VIEJA", "2/12", "500,00", ""],
+        ],
+        "Mov_Periodo_29-08-2026",
+      ),
+    );
+    expect(res.periodo).toBe("2026-06");
+    expect(res.fechaCierre).toBe("2026-07-02");
+  });
+
+  it("\"/\" en la columna Cuota significa sin cuotas", () => {
+    const res = parsearBBVATarjeta(
+      xlsFalso([HEADER, ["", "05/07/2026", "COMERCIO A", "/", "1.000,00", ""]]),
+    );
+    expect(res.movimientos[0].cuotaNro).toBeNull();
+    expect(res.movimientos[0].cuotaTotal).toBeNull();
   });
 });

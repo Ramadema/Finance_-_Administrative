@@ -6,9 +6,19 @@
  *     llevan etiquetas directas visibles y existe vista de tabla. No es opcional.
  *   dark  (superficie #1a1a19): 6 checks — PASS limpio.
  *
- * Los 8 slots se asignan en ORDEN FIJO y NUNCA se ciclan: por eso la taxonomía
- * tiene exactamente 8 categorías raíz. Una novena no genera un tono nuevo —
- * cae en "Otros".
+ * Los slots se asignan en ORDEN FIJO y NUNCA se ciclan: la taxonomía tiene
+ * exactamente tantas categorías raíz como slots. Una de más no genera tono
+ * nuevo — cae en "Otros", en gris neutro, indistinguible de "Sin categorizar".
+ *
+ * El slot 8 (teal) se agregó al partir "Ocio y viajes" en dos. Medido con el
+ * mismo validador antes de agregarlo: con 9 slots los peores pares son LOS
+ * MISMOS que con 8 —verde↔naranja ΔE 3.2 protan en claro, magenta↔aqua ΔE 1.6
+ * deutan en oscuro— así que no introduce un problema nuevo. Lo que sí baja es
+ * tritanopia en claro (5.1 → 2.4); se aceptó porque afecta a ~0,01% de la
+ * gente contra ~8% de protan/deutan, y la regla de relieve ya rige igual.
+ *
+ * Un slot 10 no se probó: agregar hue a esta altura empieza a comer los pares
+ * que hoy sí separan. Si hace falta otra raíz, medir primero.
  */
 
 export interface ParTema {
@@ -26,6 +36,7 @@ export const SERIES: readonly ParTema[] = [
   { light: "#008300", dark: "#008300" }, // 5 verde
   { light: "#4a3aa7", dark: "#9085e9" }, // 6 violeta
   { light: "#e34948", dark: "#e66767" }, // 7 rojo
+  { light: "#00879b", dark: "#00a2b3" }, // 8 teal
 ] as const;
 
 /** Slots con contraste <3:1 en light. Obligan etiqueta directa visible. */

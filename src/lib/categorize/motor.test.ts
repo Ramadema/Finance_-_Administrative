@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { clasificar, cobertura, type EntradaMemoria, type Regla } from "./motor";
 import { clave, titulizar } from "./normalizar";
+import { CATEGORIAS } from "./categorias";
+import { SERIES } from "../design/paleta";
 
 describe("normalizar la descripción del banco", () => {
   it("saca el prefijo del procesador de pagos", () => {
@@ -81,6 +83,36 @@ describe("cascada de categorización", () => {
   it("distingue ingresos de gastos", () => {
     expect(clasificar("ACREDITACION HABERES").categoria).toBe("ingresos");
     expect(clasificar("PLAZO FIJO CONSTITUCION").categoria).toBe("inversion");
+  });
+
+  it("separa viajes de joda: un vuelo y un cine no son el mismo gasto", () => {
+    // Eran la misma categoría ("Ocio y viajes") y no se podían mirar aparte:
+    // un pasaje es un gasto del año y una entrada de cine es del fin de semana.
+    expect(clasificar("DESPEGAR.COM.AR").categoria).toBe("viajes");
+    expect(clasificar("AEROLINEAS ARGENTINAS").categoria).toBe("viajes");
+    expect(clasificar("BOOKING.COM").subcategoria).toBe("Hotelería");
+
+    expect(clasificar("HOYTS ABASTO").categoria).toBe("joda");
+    expect(clasificar("CINEMARK PALERMO").categoria).toBe("joda");
+    expect(clasificar("TICKETEK ARGENTINA").subcategoria).toBe("Recitales y eventos");
+  });
+
+  it("educación no es joda ni viaje: queda con los servicios", () => {
+    expect(clasificar("COURSERA").categoria).toBe("servicios");
+    expect(clasificar("UADE CUOTA").subcategoria).toBe("Educación");
+  });
+
+  it("ninguna categoría raíz quedó sin color propio", () => {
+    // La paleta no cicla: una raíz sin slot sale en el gris de "Otros", igual
+    // que "Sin categorizar", y deja de distinguirse en todos los gráficos.
+    // "Sin categorizar" queda afuera: usa el gris neutro a propósito, que es
+    // justo lo que tiene que significar "todavía no sé qué es esto".
+    const slots = CATEGORIAS.filter(
+      (c) => c.clase === "gasto" && c.id !== "sin_categoria",
+    ).map((c) => c.slot);
+    expect(slots).not.toContain(null);
+    expect(new Set(slots).size).toBe(slots.length); // sin slots repetidos
+    expect(Math.max(...(slots as number[]))).toBeLessThan(SERIES.length);
   });
 
   it("cubre un resumen realista arriba del 65%", () => {

@@ -14,6 +14,13 @@ export interface MovimientoParaAnalisis {
   /** "2026-08" */
   periodo: string;
   montoARS: number;
+  /**
+   * Lo cargaste vos como gasto fijo. No hace falta detectarlo — y no se puede:
+   * el detector mide la fracción de meses SIN cambio, así que un alquiler que
+   * aumentó de $100.000 a $200.000 da fracción plana 0 y saldría "variable".
+   * Justo el gasto más ineludible que hay.
+   */
+  declaradoFijo: boolean;
 }
 
 export type Naturaleza = "fijo" | "variable" | "esporadico";
@@ -104,16 +111,17 @@ export function perfilarRecurrencia(
   // comercio → periodo → monto sumado de ese mes
   const porComercio = new Map<
     string,
-    { comercio: string; categoria: string; porPeriodo: Map<string, number> }
+    { comercio: string; categoria: string; declarado: boolean; porPeriodo: Map<string, number> }
   >();
 
   for (const m of movimientos) {
     if (!setPeriodos.has(m.periodo)) continue;
     let e = porComercio.get(m.claveComercio);
     if (!e) {
-      e = { comercio: m.comercio, categoria: m.categoria, porPeriodo: new Map() };
+      e = { comercio: m.comercio, categoria: m.categoria, declarado: false, porPeriodo: new Map() };
       porComercio.set(m.claveComercio, e);
     }
+    if (m.declaradoFijo) e.declarado = true;
     e.porPeriodo.set(m.periodo, (e.porPeriodo.get(m.periodo) ?? 0) + m.montoARS);
   }
 
@@ -132,7 +140,8 @@ export function perfilarRecurrencia(
     const estable = fraccionPlana(serie) >= UMBRAL_ESCALONADO;
 
     let naturaleza: Naturaleza;
-    if (recurrente && estable) naturaleza = "fijo";
+    if (e.declarado) naturaleza = "fijo"; // lo declaraste: no hay nada que detectar
+    else if (recurrente && estable) naturaleza = "fijo";
     else if (recurrente) naturaleza = "variable";
     else naturaleza = "esporadico";
 
