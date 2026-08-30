@@ -10,6 +10,8 @@ import { nombrePeriodo } from "@/lib/utils";
 import { NavLateral, NavInferior, SECCIONES } from "./Nav";
 import { Boton } from "./ui/Boton";
 import { ProveedorTooltips, Tooltip } from "./ui/Tooltip";
+import { EstadoDrive } from "./EstadoDrive";
+import { ConflictoDrive } from "./ConflictoDrive";
 
 /**
  * Estructura de la app: sidebar en desktop, barra inferior en mobile.
@@ -27,7 +29,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function Marco({ children }: { children: React.ReactNode }) {
-  const { cargando, movimientos, persistente } = useDatos();
+  const { cargando, movimientos, persistente, falloBase } = useDatos();
   const pathname = usePathname();
   const seccion = SECCIONES.find((s) => s.href === pathname);
 
@@ -37,6 +39,25 @@ function Marco({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto max-w-[1400px] px-4 sm:px-6">
       <Encabezado />
+
+      {/* La base local no abrió. Sin ella la app no puede hacer nada, así que
+          hay que decirlo en vez de mostrar un dashboard vacío como si no
+          tuvieras datos. */}
+      {falloBase && (
+        <p
+          className="mb-4 flex items-start gap-2 rounded-lg px-3 py-2 text-[12.5px] leading-relaxed"
+          style={{
+            background: "color-mix(in oklab, var(--critico) 14%, transparent)",
+            color: "var(--ink-secundario)",
+          }}
+        >
+          <ShieldAlert className="mt-px h-4 w-4 shrink-0" style={{ color: "var(--critico)" }} />
+          <span>
+            No se pudo abrir la base de datos de este navegador, así que no puedo mostrarte
+            tus movimientos. {falloBase} Probá cerrar las otras pestañas de la app y recargar.
+          </span>
+        </p>
+      )}
 
       {/* El navegador dijo explícitamente que puede desalojar la base. Callarlo
           sería peor: es el único aviso antes de perder todo el histórico. */}
@@ -58,7 +79,7 @@ function Marco({ children }: { children: React.ReactNode }) {
       )}
 
       {vacia ? (
-        <main className="pb-16">{children}</main>
+        <main className="pb-8">{children}</main>
       ) : (
         <div className="flex gap-7 pb-24 lg:pb-10">
           <aside className="sticky top-6 hidden h-fit w-[184px] shrink-0 lg:block">
@@ -77,6 +98,11 @@ function Marco({ children }: { children: React.ReactNode }) {
       )}
 
       {!vacia && <NavInferior />}
+
+      {/* Global a propósito: el conflicto aparece al conectarse, estés en la
+          pantalla que estés, y hasta resolverlo lo que ves puede no ser lo
+          último. */}
+      <ConflictoDrive />
     </div>
   );
 }
@@ -140,6 +166,8 @@ function Encabezado() {
                          style={{ color: "var(--ink-mudo)" }} />
           </div>
         )}
+
+        <EstadoDrive />
 
         <Tooltip texto="Descargar un respaldo de todos tus datos">
           <Boton variante="fantasma" onClick={descargar} aria-label="Descargar respaldo">

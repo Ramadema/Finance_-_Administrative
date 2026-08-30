@@ -10,7 +10,13 @@ import { cn } from "@/lib/utils";
  * Carga del Excel del banco. Todo el parseo corre acá, en el navegador:
  * el archivo no viaja a ningún servidor.
  */
-export function ZonaCarga({ onImportado }: { onImportado: () => void }) {
+export function ZonaCarga({
+  onImportado, grande = false,
+}: {
+  onImportado: () => void;
+  /** Variante de la pantalla de bienvenida: es el foco de la página. */
+  grande?: boolean;
+}) {
   const [encima, setEncima] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [res, setRes] = useState<(ResultadoImport & { archivo: string }) | null>(null);
@@ -59,7 +65,8 @@ export function ZonaCarga({ onImportado }: { onImportado: () => void }) {
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") inputRef.current?.click(); }}
         className={cn(
           "relative flex cursor-pointer flex-col items-center justify-center gap-2",
-          "rounded-[14px] border-2 border-dashed px-6 py-9 text-center transition-all duration-200",
+          "rounded-[14px] border-2 border-dashed px-6 text-center transition-all duration-200",
+          grande ? "py-12 lg:py-16" : "py-9",
           "focus-visible:outline-2 focus-visible:outline-offset-2",
         )}
         style={{
@@ -83,16 +90,19 @@ export function ZonaCarga({ onImportado }: { onImportado: () => void }) {
         />
 
         {cargando ? (
-          <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--s1)" }} />
+          <Loader2 className={cn("animate-spin", grande ? "h-8 w-8" : "h-6 w-6")}
+                   style={{ color: "var(--s1)" }} />
         ) : (
-          <Upload className="h-6 w-6" style={{ color: encima ? "var(--s1)" : "var(--ink-mudo)" }} />
+          <Upload className={grande ? "h-8 w-8" : "h-6 w-6"}
+                  style={{ color: encima ? "var(--s1)" : "var(--ink-mudo)" }} />
         )}
 
         <div>
-          <p className="text-[15px] font-medium">
+          <p className={cn("font-medium", grande ? "text-[17px] lg:text-[19px]" : "text-[15px]")}>
             {cargando ? "Leyendo el archivo…" : "Arrastrá el Excel del banco"}
           </p>
-          <p className="mt-0.5 text-[13px]" style={{ color: "var(--ink-mudo)" }}>
+          <p className={cn("mt-1", grande ? "text-[13.5px]" : "text-[13px]")}
+             style={{ color: "var(--ink-mudo)" }}>
             BBVA → Tarjetas → Resúmenes → Descargar Excel · o hacé clic para elegirlo
           </p>
         </div>
