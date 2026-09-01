@@ -19,29 +19,28 @@ export function EstadoDrive() {
   const { drive } = useDatos();
   if (!drive.disponible) return null;
 
-  if (drive.reconectando) {
-    return (
-      <span className="flex items-center gap-1.5 px-2 text-[12px]"
-            style={{ color: "var(--ink-mudo)" }}>
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        Conectando…
-      </span>
-    );
-  }
-
   if (!drive.conectado) {
     return (
-      <Tooltip texto="Guardá tus datos en tu Drive para verlos desde otro dispositivo">
+      <Tooltip
+        texto={
+          drive.sesionPrevia
+            ? "Ya usaste Drive acá. Google pide un clic por sesión para volver a darte acceso."
+            : "Guardá tus datos en tu Drive para verlos desde otro dispositivo"
+        }
+      >
         <Boton
           variante="fantasma"
           onClick={() => void drive.entrar()}
           disabled={drive.ocupado !== null}
-          aria-label="Entrar con Google"
+          aria-label={drive.sesionPrevia ? "Reconectar con Google" : "Entrar con Google"}
         >
           {drive.ocupado === "entrando"
             ? <Loader2 className="h-4 w-4 animate-spin" />
-            : <CloudOff className="h-4 w-4" />}
-          <span className="hidden sm:inline">Sin cuenta</span>
+            : <CloudOff className="h-4 w-4"
+                        style={drive.sesionPrevia ? { color: "var(--advertencia)" } : undefined} />}
+          <span className="hidden sm:inline">
+            {drive.sesionPrevia ? "Reconectar" : "Sin cuenta"}
+          </span>
         </Boton>
       </Tooltip>
     );

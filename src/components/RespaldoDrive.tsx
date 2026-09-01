@@ -24,14 +24,14 @@ export function RespaldoDrive() {
     );
   }
 
-  const ocupado = drive.ocupado !== null || drive.reconectando;
+  const ocupado = drive.ocupado !== null;
 
   if (!drive.conectado) {
     return (
       <div className="px-5 pb-5">
         <Boton variante="solido" onClick={() => void drive.entrar()} disabled={ocupado}>
           {ocupado ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Cloud className="h-3.5 w-3.5" />}
-          Entrar con Google
+          {drive.sesionPrevia ? "Reconectar con Google" : "Entrar con Google"}
         </Boton>
         <p className="mt-3 text-[12px] leading-relaxed" style={{ color: "var(--ink-mudo)" }}>
           La app solo pide acceso a <strong>su propia carpeta oculta</strong> en tu

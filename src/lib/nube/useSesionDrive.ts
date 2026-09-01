@@ -31,8 +31,11 @@ export interface Conflicto {
 export interface SesionDrive {
   disponible: boolean;
   conectado: boolean;
-  /** Reintentando en silencio la sesión de la vez anterior. */
-  reconectando: boolean;
+  /**
+   * Ya usaste Drive antes en este navegador. No alcanza para entrar solo —Google
+   * exige un clic— pero sirve para decir "reconectar" en vez de "entrar".
+   */
+  sesionPrevia: boolean;
   ocupado: Ocupado;
   error: string | null;
   ultimaSync: string | null;
@@ -57,7 +60,7 @@ export function useSesionDrive({
   listo: boolean;
 }): SesionDrive {
   const [conectado, setConectado] = useState(false);
-  const [reconectando, setReconectando] = useState(false);
+  const [sesionPrevia, setSesionPrevia] = useState(false);
   const [ocupado, setOcupado] = useState<Ocupado>(null);
   const [error, setError] = useState<string | null>(null);
   const [ultimaSync, setUltimaSync] = useState<string | null>(null);
@@ -98,37 +101,30 @@ export function useSesionDrive({
     else setConflicto({ enNube: archivo, movimientosLocales: locales.current });
   }, [bajarYAplicar]);
 
-  // Al abrir: si ya habías entrado antes, se reintenta sin molestarte.
-  const yaIntento = useRef(false);
+  /**
+   * Al abrir solo se lee el estado guardado. NO se intenta reconectar solo:
+   * Google entrega el token por ventana emergente y el navegador la bloquea si
+   * no viene de un clic. Intentarlo al cargar la página no renovaba nada y
+   * ensuciaba la consola con "Failed to open popup window".
+   */
+  const yaLeyo = useRef(false);
   useEffect(() => {
-    if (!HAY_CLIENT_ID || !listo || yaIntento.current) return;
-    yaIntento.current = true;
+    if (!HAY_CLIENT_ID || !listo || yaLeyo.current) return;
+    yaLeyo.current = true;
 
     void (async () => {
-      const usaDrive = await leerConfig<boolean>(CLAVE_USA_DRIVE, false);
+      setSesionPrevia(await leerConfig<boolean>(CLAVE_USA_DRIVE, false));
       setUltimaSync((await leerConfig<string>(CLAVE_ULTIMA, "")) || null);
-      if (!usaDrive) return;
-
-      setReconectando(true);
-      try {
-        await obtenerToken(false); // silencioso: sin ventana emergente
-        setConectado(true);
-        await alConectar();
-      } catch {
-        // La sesión de Google caducó. No es un error que valga mostrar: el
-        // usuario ve el botón de conectar y decide.
-      } finally {
-        setReconectando(false);
-      }
     })();
-  }, [listo, alConectar]);
+  }, [listo]);
 
   const entrar = useCallback(async () => {
     setError(null);
     setOcupado("entrando");
     try {
-      await obtenerToken(true);
+      await obtenerToken();
       setConectado(true);
+      setSesionPrevia(true);
       await guardarConfig(CLAVE_USA_DRIVE, true);
       await alConectar();
     } catch (e) {
@@ -142,6 +138,7 @@ export function useSesionDrive({
     await cerrarSesion();
     await guardarConfig(CLAVE_USA_DRIVE, false);
     setConectado(false);
+    setSesionPrevia(false);
     setEnNube(null);
     setConflicto(null);
   }, []);
@@ -179,7 +176,7 @@ export function useSesionDrive({
 
   return {
     disponible: HAY_CLIENT_ID,
-    conectado, reconectando, ocupado, error, ultimaSync, enNube, conflicto,
+    conectado, sesionPrevia, ocupado, error, ultimaSync, enNube, conflicto,
     entrar, salir, guardar, traer,
     descartarConflicto: () => setConflicto(null),
     limpiarError: () => setError(null),

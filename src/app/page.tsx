@@ -87,7 +87,7 @@ export default function Resumen() {
 function Bienvenida() {
   const d = useDatos();
   const { drive } = d;
-  const entrando = drive.ocupado === "entrando" || drive.reconectando;
+  const entrando = drive.ocupado === "entrando";
 
   return (
     /* Centrado vertical y escalado con la pantalla: en un monitor grande, un
@@ -115,10 +115,12 @@ function Bienvenida() {
               {entrando
                 ? <Loader2 className="h-[18px] w-[18px] animate-spin" />
                 : <Cloud className="h-[18px] w-[18px]" />}
-              {drive.reconectando ? "Buscando tus datos…" : "Entrar con Google"}
+              {drive.sesionPrevia ? "Reconectar con Google" : "Entrar con Google"}
             </Boton>
             <p className="mt-2.5 text-[13px] lg:text-[13.5px]" style={{ color: "var(--ink-mudo)" }}>
-              Si ya usaste la app antes, te trae lo que tenías guardado en tu Drive.
+              {drive.sesionPrevia
+                ? "Ya usaste Drive en este navegador. Un clic y traigo tus datos."
+                : "Si ya usaste la app antes, te trae lo que tenías guardado en tu Drive."}
             </p>
 
             {drive.error && (
