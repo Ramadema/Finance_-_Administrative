@@ -14,6 +14,7 @@ import { capacidadDe, proyectarAhorro, fondoEmergencia, type CapacidadAhorro } f
 import { generarInsights, historicoPorCategoria, type Insight } from "./analisis/insights";
 import type { PerfilRecurrencia, Naturaleza } from "./categorize/recurrencia";
 import { periodoAnterior } from "./utils";
+import { useSesionDrive, type SesionDrive } from "./nube/useSesionDrive";
 
 /**
  * Estado global de la app.
@@ -36,6 +37,10 @@ export interface Datos {
    * `null` = no se puede saber (el navegador no expone la API).
    */
   persistente: boolean | null;
+  /** La base local no se pudo abrir. La app no puede hacer nada útil. */
+  falloBase: string | null;
+  /** Sesión de Google Drive, compartida por toda la app. */
+  drive: SesionDrive;
 
   resumen: ResumenPeriodo | null;
   previo: ResumenPeriodo | null;
@@ -76,15 +81,26 @@ export function DatosProvider({ children }: { children: React.ReactNode }) {
   const [ahorroAcumulado, setAhorroAcumulado] = useState(0);
   const [periodoSel, setPeriodo] = useState<string | null>(null);
   const [persistente, setPersistente] = useState<boolean | null>(null);
+  const [falloBase, setFalloBase] = useState<string | null>(null);
 
   const recargar = useCallback(async () => {
-    const [ms, ing, cfg] = await Promise.all([
-      db().movimientos.toArray(), mapaIngresos(), todaLaConfig(),
-    ]);
-    setMovimientos(ms.sort((a, b) => b.fecha.localeCompare(a.fecha)));
-    setIngresos(ing);
-    setAhorroAcumulado(Number(cfg.get("ahorroAcumulado") ?? 0));
-    setCargando(false);
+    try {
+      const [ms, ing, cfg] = await Promise.all([
+        db().movimientos.toArray(), mapaIngresos(), todaLaConfig(),
+      ]);
+      setMovimientos(ms.sort((a, b) => b.fecha.localeCompare(a.fecha)));
+      setIngresos(ing);
+      setAhorroAcumulado(Number(cfg.get("ahorroAcumulado") ?? 0));
+      setFalloBase(null);
+    } catch (e) {
+      // Sin esto, cualquier problema al abrir la base dejaba la app girando en
+      // el esqueleto para siempre, sin un solo mensaje ni en pantalla ni en
+      // consola. Una pantalla trabada sin explicación es peor que un error.
+      console.error("[Plata] no se pudo leer la base local", e);
+      setFalloBase(e instanceof Error ? e.message : "No se pudo abrir la base local.");
+    } finally {
+      setCargando(false);
+    }
   }, []);
 
   useEffect(() => { void recargar(); }, [recargar]);
@@ -151,9 +167,15 @@ export function DatosProvider({ children }: { children: React.ReactNode }) {
     };
   }, [movimientos, periodos, periodo, ingresosPorPeriodo, ahorroAcumulado]);
 
+  const drive = useSesionDrive({
+    movimientosLocales: movimientos.length,
+    recargar,
+    listo: !cargando,
+  });
+
   const valor: Datos = {
     cargando, movimientos, periodos, periodo, setPeriodo,
-    ingresosPorPeriodo, ahorroAcumulado, persistente, recargar, ...derivado,
+    ingresosPorPeriodo, ahorroAcumulado, persistente, falloBase, drive, recargar, ...derivado,
   };
 
   return <Ctx.Provider value={valor}>{children}</Ctx.Provider>;

@@ -109,11 +109,16 @@ export class ErrorGoogle extends Error {
 /**
  * Devuelve un token de acceso, pidiéndoselo a Google si hace falta.
  *
- * `interactivo` en false intenta renovarlo sin molestar al usuario: sirve para
- * refrescar en segundo plano cuando ya diste permiso. Si Google necesita
- * preguntarte algo, falla en vez de abrir una ventana que no pediste.
+ * SIEMPRE hay que llamarlo desde un clic. Google entrega el token por ventana
+ * emergente y no hay forma de evitarlo sin backend: `prompt: "none"` no la
+ * saltea, solo intenta abrirla sin preguntar nada, y el navegador la bloquea
+ * igual si no viene de un gesto del usuario. Llamarlo al cargar la página
+ * termina en "Failed to open popup window", no en una sesión renovada.
+ *
+ * Consecuencia de diseño: un clic por sesión. Después el token vive una hora en
+ * memoria y guardar o traer no vuelve a preguntar nada.
  */
-export function obtenerToken(interactivo = true): Promise<string> {
+export function obtenerToken(): Promise<string> {
   const cacheado = vigente();
   if (cacheado) return Promise.resolve(cacheado);
 
@@ -159,7 +164,7 @@ export function obtenerToken(interactivo = true): Promise<string> {
           },
         });
 
-        cliente.requestAccessToken(interactivo ? {} : { prompt: "none" });
+        cliente.requestAccessToken();
 
         // Si Google no llama a ninguno de los dos callbacks, la promesa quedaría
         // colgada y el botón girando para siempre.

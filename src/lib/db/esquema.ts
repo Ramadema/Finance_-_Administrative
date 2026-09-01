@@ -146,6 +146,13 @@ export class FinanzasDB extends Dexie {
 
   constructor() {
     super("finanzas");
+    // Otra pestaña con una versión distinta bloquea la apertura. Sin esto, la
+    // app se queda esperando para siempre sin una sola pista.
+    this.on("blocked", () =>
+      console.error(
+        "[Plata] La base quedó bloqueada por otra pestaña abierta con una versión distinta.",
+      ),
+    );
     this.version(1).stores({
       importaciones: "id, hashArchivo, periodo, fechaImport",
       movimientos: "id, periodo, fecha, categoria, claveComercio, importacionId, excluido",
