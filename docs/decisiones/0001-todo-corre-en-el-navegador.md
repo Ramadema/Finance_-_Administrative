@@ -1,5 +1,9 @@
 # 0001 — Todo corre en el navegador
 
+> **Acotado por [0011](0011-agente-con-tu-propia-key.md)**: si el usuario activa el
+> agente con su propia key, sale de su máquina la pregunta y lo que hace falta
+> para contestarla. Todo lo demás de este ADR sigue vigente.
+
 ## Contexto
 
 La app maneja el resumen de tarjeta completo: cuánto ganás, en qué gastás, dónde

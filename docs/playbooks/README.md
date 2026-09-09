@@ -10,6 +10,7 @@ saliste a buscar "cómo era esto" por segunda vez, va acá.
 | [`agregar-un-banco.md`](agregar-un-banco.md) | Otro banco, u otro export del mismo |
 | [`tocar-la-base.md`](tocar-la-base.md) | Cambiar el esquema o migrar datos guardados |
 | [`migrar-un-modulo.md`](migrar-un-modulo.md) | Pasar un dominio a la estructura por módulos |
+| [`agregar-una-herramienta-al-agente.md`](agregar-una-herramienta-al-agente.md) | Una pregunta nueva que el agente pueda contestar |
 
 Ninguno reemplaza a [`../../AGENTS.md`](../../AGENTS.md): los invariantes de
 plata valen en todos.

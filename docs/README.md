@@ -7,6 +7,7 @@ documentación de uso vive en el `README.md` de la raíz y no se duplica acá.
 |---|---|---|
 | [`arquitectura.md`](arquitectura.md) | Con qué está hecho, cómo fluye la plata desde el `.xls` hasta la pantalla, y dónde va cada cosa nueva | Antes de crear un archivo nuevo |
 | [`dominio.md`](dominio.md) | Qué significa cada palabra del dominio (`periodo`, naturaleza, plan de cuotas…) | Antes de nombrar algo o de tocar una métrica |
+| [`agente.md`](agente.md) | Cómo está hecho el agente de consulta y qué hay que saber de LLMs, herramientas, embeddings y RAG para tocarlo | Antes de tocar `src/lib/ia/`, o para aprender |
 | [`decisiones/`](decisiones/) | Por qué el código es así y qué se rompe si lo cambiás | Antes de "arreglar" algo que parece raro |
 | [`playbooks/`](playbooks/) | Cómo hacer una tarea que ya se hizo antes, paso a paso | Antes de empezar la tarea |
 

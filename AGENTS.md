@@ -25,7 +25,7 @@ npm run lint && npm run typecheck && npm test && npm run deps:check && npm run d
 ```
 
 Los cinco tienen que pasar. No están de adorno: el lint es el que hace ciertas
-las fronteras de `docs/arquitectura.md`, y los 160 tests son el contrato del
+las fronteras de `docs/arquitectura.md`, y los 184 tests son el contrato del
 dominio, y `docs:check` verifica que la documentación siga describiendo este
 repo y no el de hace tres meses. Si tocaste el parseo del Excel, corré además
 `npm test` con archivos reales en `samples/` (la tanda de regresión se saltea
@@ -52,6 +52,10 @@ sola si no están).
    `docs/decisiones/0003-el-mes-es-el-del-resumen.md`.
 7. **Nada de consejos de inversión.** La app hace aritmética sobre tus datos.
    Dónde poner la plata es de un asesor matriculado, y el código no opina.
+8. **El modelo nunca produce un número.** El agente (`src/lib/ia/`) pide
+   herramientas que devuelven totales ya calculados; el texto del modelo es la
+   explicación, no el dato. Si una herramienta nueva obliga al modelo a sumar,
+   está mal diseñada. Ver `docs/agente.md`.
 
 ## Fronteras entre capas
 
@@ -67,6 +71,8 @@ El sentido de las dependencias es UI → dominio → nada. Está en
   por `@/lib/db/repo`. De `db/esquema` solo pueden sacar tipos (`import type`).
 - **`src/components/ui/`** son primitivas tontas: reciben props, no conocen el
   dominio.
+- **`src/lib/ia/`** es lo único que habla con un modelo de lenguaje. Nadie más
+  importa un SDK de IA, y de `lib/ia` se importa solo `@/lib/ia` (su `index.ts`).
 
 Si una regla te estorba, la pregunta es si la frontera está mal puesta — no si
 conviene un `eslint-disable`. Hoy los únicos `eslint-disable` del repo son 7 de
@@ -74,9 +80,10 @@ conviene un `eslint-disable`. Hoy los únicos `eslint-disable` del repo son 7 de
 
 ## Qué NO hacer sin que te lo pidan
 
-- **No agregar backend, ni API keys, ni llamadas a un LLM en el producto.** Es
-  la promesa central: los movimientos no salen de la máquina. Ver
-  `docs/decisiones/0001-todo-corre-en-el-navegador.md`.
+- **No agregar backend ni ninguna key nuestra.** La única IA del producto es el
+  agente de `lib/ia`, opt-in y con la key del propio usuario en su navegador
+  (`docs/decisiones/0011-agente-con-tu-propia-key.md`). Todo lo demás sigue
+  siendo local: `docs/decisiones/0001-todo-corre-en-el-navegador.md`.
 - **No agregar dependencias.** Si hace falta una, decilo y esperá — cada una es
   peso en el bundle de una app que se baja entera al navegador. Y si dejás de
   usar una, sacala en el mismo cambio: `deps:check` no deja que quede declarada
@@ -108,6 +115,7 @@ interno que nadie de afuera puede notar.
 | un parser nuevo en `src/lib/ingest/` | `docs/playbooks/agregar-un-banco.md` y las limitaciones del README |
 | una dependencia nueva, o `next.config.ts` | un ADR: son decisiones que cuesta revertir |
 | una palabra del dominio que antes no existía | `docs/dominio.md` |
+| el agente (`src/lib/ia/`): una herramienta, el sistema, el bucle | `docs/agente.md` |
 | una decisión que costaría revertir | un ADR en `docs/decisiones/` (`/adr` lo escribe) |
 
 Dos cosas lo verifican y no dependen de que alguien se acuerde:
@@ -129,4 +137,5 @@ desactualizada: no se sabe cuál de las dos versiones creer.
 | soportar otro banco o el resumen de cuenta | `docs/playbooks/agregar-un-banco.md` |
 | cambiar el esquema o migrar datos | `docs/playbooks/tocar-la-base.md` |
 | mover un módulo a la estructura nueva | `docs/playbooks/migrar-un-modulo.md` |
+| darle una pregunta nueva al agente | `docs/playbooks/agregar-una-herramienta-al-agente.md` |
 | tomar una decisión que cueste revertir | `docs/decisiones/README.md` |

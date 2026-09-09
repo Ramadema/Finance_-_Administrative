@@ -27,7 +27,7 @@ navegador, y todo lo que ves arriba es cálculo derivado de esos movimientos.
 ```
 
 La dependencia va en un solo sentido: **UI → dominio → nada**. El dominio no
-sabe que existen React, IndexedDB ni Drive; por eso los 160 tests corren en
+sabe que existen React, IndexedDB ni Drive; por eso los 184 tests corren en
 milisegundos, sin navegador y sin un solo mock.
 
 ## Con qué está hecho
@@ -44,9 +44,10 @@ milisegundos, sin navegador y sin un solo mock.
 | Tests | **Vitest** | Corre en Node, sin jsdom, sin testing-library y sin un solo mock: el dominio es puro, así que alcanza con llamarlo |
 | Tipos y lint | **TypeScript** en `strict`, **ESLint 9** | El lint además verifica las fronteras entre capas |
 
-**Lo que no hay, a propósito**: servidor, base en la nube, API keys, LLM en el
-producto, librería de estado global (alcanza un context), y ninguna librería de
-fetching — la única red que existe es la de Drive.
+**Lo que no hay, a propósito**: servidor, base en la nube, ninguna key nuestra,
+librería de estado global (alcanza un context), y ninguna librería de fetching.
+La red que existe es la de Drive y, si el usuario activa el agente con su propia
+key, la del proveedor del modelo ([`agente.md`](agente.md)).
 
 **Todo lo que está en `package.json` se usa, y `npm run deps:check` lo verifica**
 en los dos sentidos: nada declarado que nadie importe, nada importado que nadie
@@ -55,9 +56,9 @@ el bundle —lo que nadie importa no llega al navegador— pero miente, y quien 
 `package.json` escribe código con una librería que el repo no usa. Está contado
 en [0010](decisiones/0010-ninguna-dependencia-sin-usar.md).
 
-## Los cuatro caminos
+## Los cinco caminos
 
-Todo lo que hace la app es uno de estos cuatro recorridos.
+Todo lo que hace la app es uno de estos cinco recorridos.
 
 **1. Entra un archivo del banco.** `ZonaCarga` recibe el `.xls` y llama a
 `importarArchivo()` (`src/lib/db/repo.ts`), que orquesta:
@@ -96,6 +97,14 @@ entero de ese comercio** —salvo lo que hayas editado uno por uno—, y despué
 `recargar()`. Por eso categorizás una vez y no vuelve a preguntar. Lo mismo con
 los ingresos y los gastos fijos que cargás a mano.
 
+**5. Preguntás.** `preguntar()` (`src/lib/ia/agente.ts`) le manda al modelo tu
+pregunta, las reglas y las herramientas; el modelo pide una o varias
+(`resumen_del_mes`, `buscar_movimientos`…), el agente las ejecuta sobre los
+mismos movimientos que ya están en memoria y le devuelve los resultados, y así
+hasta que responde. **El modelo nunca calcula**: las herramientas traen los
+totales, y `numerosSinRespaldo()` marca cualquier cifra de la respuesta que no
+salió de ellas. Diseño y glosario en [`agente.md`](agente.md).
+
 **4. Respaldás.** `useSesionDrive` pide el token a Google (`lib/nube/google.ts`),
 `exportarJSON()` arma el respaldo entero y `subirRespaldo()` lo escribe en tu
 Drive. Al revés, `bajarRespaldo()` + `importarJSON()`. Si lo local y lo remoto
@@ -112,6 +121,7 @@ duplicar o borrar movimientos sin que nadie se entere.
 | `src/lib/db/` | Esquema Dexie + repositorio | IndexedDB | React, `analisis/` |
 | `src/lib/nube/` | OAuth de Google y respaldo en Drive | red, `db/` | React salvo su hook, `analisis/` |
 | `src/lib/design/` | Paleta y tema | — | dominio, base |
+| `src/lib/ia/` | El agente: puerto, herramientas, bucle. Única capa que habla con un modelo | `analisis/`, `categorize/`, un SDK de modelo | React, base, `nube/`, UI |
 | `src/lib/DatosContext.tsx` | Estado global: carga y orquesta el cálculo | todo `lib/` | — |
 | `src/components/` | Componentes con dominio adentro | `useDatos`, `db/repo` | `dexie`, `db()` |
 | `src/components/ui/` | Primitivas tontas (Boton, Card, Tooltip) | props | dominio, base, contexto |
@@ -132,6 +142,8 @@ se lee solo. Lo que hoy se prohíbe:
 - `db/repo`, React, `next/*`, componentes y `nube/` dentro del dominio puro.
 - `db/esquema` importado por la UI para otra cosa que no sean tipos.
 - El contexto y la base dentro de `components/ui/`.
+- Un SDK de modelo fuera de `lib/ia`; `lib/ia` importado por otra ruta que su
+  `index.ts`; el dominio importando `lib/ia`.
 - `parseFloat` en todo `src/` (ver `decisiones/0002`).
 
 El repo pasa todas sin una sola excepción. Si agregás una regla nueva, tiene que
@@ -147,6 +159,7 @@ quedar en cero el mismo día: una regla con excepciones no frena nada.
 | un gráfico | `components/charts/`, recibiendo por props lo ya calculado |
 | una pantalla | `app/<ruta>/page.tsx`, componiendo componentes |
 | un dato que dos secciones necesitan | el `useMemo` de `DatosContext` |
+| una pregunta nueva que el agente pueda contestar | `lib/ia/herramientas.ts`, envolviendo una función de `analisis/` ([playbook](playbooks/agregar-una-herramienta-al-agente.md)) |
 
 Regla práctica: **si tiene un `if` sobre plata, va en `lib/`, y lleva test.** Un
 componente puede decidir cómo mostrar un número, nunca cuánto vale.

@@ -24,7 +24,7 @@ por otra razón**, siguiendo [`../playbooks/migrar-un-modulo.md`](../playbooks/m
 
 ## Consecuencias
 
-- Los 160 tests quedan verdes en todo momento y no existe el commit gigante que
+- Los tests quedan verdes en todo momento y no existe el commit gigante que
   nadie puede revisar.
 - El orden lo decide el uso: se ordena primero lo que más se toca, que es
   justamente lo que más conviene tener ordenado.

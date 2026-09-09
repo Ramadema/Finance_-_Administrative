@@ -13,12 +13,47 @@ import nextTs from "eslint-config-next/typescript";
  * Cada zona declara qué NO puede importar. Si una regla te molesta, la
  * discusión es si la frontera está bien puesta — no si conviene agregar una
  * excepción. Hoy no hay ninguna: el repo cumple todas sin `eslint-disable`.
+ *
+ * Ojo al editar: `no-restricted-imports` se reemplaza entero por zona (no se
+ * suma). Si dos bloques alcanzan el mismo archivo, gana el último y el otro
+ * desaparece en silencio. Por eso cada zona lista TODAS sus restricciones.
  */
 
 /** Dominio puro: parseo, categorización y métricas. Funciones y datos, nada más. */
 const DOMINIO = ["src/lib/ingest/**", "src/lib/categorize/**", "src/lib/analisis/**"];
 /** Todo lo que dibuja: páginas y componentes. */
 const UI = ["src/components/**", "src/app/**"];
+
+const SIN_REACT = [
+  { name: "react", message: "Esta capa no renderiza. Si necesitás un hook, va en un componente o en DatosContext." },
+  { name: "react-dom", message: "Esta capa no renderiza." },
+];
+const SIN_DEXIE = { name: "dexie", message: "Solo `src/lib/db` habla con IndexedDB. Las demás capas reciben los datos por parámetro o pasan por `db/repo`." };
+const SIN_UI = {
+  group: ["@/components/*", "**/components/*", "@/app/*", "next/*"],
+  message: "Esta capa no conoce la UI. La dependencia va en un solo sentido: UI → dominio.",
+};
+const SIN_CONTEXTO = {
+  group: ["@/lib/DatosContext", "**/DatosContext"],
+  message: "El contexto orquesta a las capas de abajo, no al revés.",
+};
+const SIN_NUBE = { group: ["@/lib/nube/*", "**/nube/*"], message: "Esta capa no sabe que existe Drive." };
+const SIN_REPO = {
+  group: ["@/lib/db/repo", "**/db/repo"],
+  message: "Esta capa no lee ni escribe la base: recibe los movimientos por parámetro y devuelve el cálculo. Así se testea sin navegador y sin mocks.",
+};
+const SIN_SDK_DE_MODELO = {
+  group: ["@anthropic-ai/*"],
+  message: "Solo `src/lib/ia/proveedores` habla con un modelo. El resto de la app usa `preguntar()` de `@/lib/ia` y no sabe qué proveedor hay atrás.",
+};
+const SIN_IA = {
+  group: ["@/lib/ia", "@/lib/ia/**", "**/lib/ia/**"],
+  message: "El agente usa al dominio, no al revés: si el cálculo necesitara al modelo, dejaría de ser verificable.",
+};
+const SOLO_INDEX_DE_IA = {
+  group: ["@/lib/ia/**", "**/lib/ia/**"],
+  message: "De `lib/ia` se importa solo su `index.ts` (`@/lib/ia`). Lo demás es interno del agente.",
+};
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -29,29 +64,22 @@ const eslintConfig = defineConfig([
     files: DOMINIO,
     rules: {
       "@typescript-eslint/no-restricted-imports": ["error", {
-        paths: [
-          { name: "react", message: "El dominio no renderiza. Si necesitás un hook, va en un componente o en DatosContext." },
-          { name: "react-dom", message: "El dominio no renderiza." },
-          { name: "dexie", message: "Solo `src/lib/db` habla con IndexedDB. El dominio recibe los datos por parámetro." },
-        ],
-        patterns: [
-          {
-            group: ["@/lib/db/repo", "**/db/repo"],
-            message: "El dominio no lee ni escribe la base: recibe los movimientos por parámetro y devuelve el cálculo. Así se puede testear sin navegador (y por eso hay 160 tests sin mocks).",
-          },
-          {
-            group: ["@/lib/nube/*", "**/nube/*"],
-            message: "El dominio no sabe que existe Drive.",
-          },
-          {
-            group: ["@/components/*", "**/components/*", "@/app/*", "next/*"],
-            message: "El dominio no conoce la UI. La dependencia va en un solo sentido: UI → dominio.",
-          },
-          {
-            group: ["@/lib/DatosContext", "**/DatosContext"],
-            message: "El contexto orquesta al dominio, no al revés.",
-          },
-        ],
+        paths: [...SIN_REACT, SIN_DEXIE],
+        patterns: [SIN_REPO, SIN_NUBE, SIN_UI, SIN_CONTEXTO, SIN_IA, SIN_SDK_DE_MODELO],
+      }],
+    },
+  },
+
+  {
+    // El agente: usa al dominio como cualquier otro consumidor, pero es la única
+    // capa autorizada a hablar con un modelo. Mismas prohibiciones que el dominio,
+    // salvo el SDK.
+    name: "plata/ia",
+    files: ["src/lib/ia/**"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": ["error", {
+        paths: [...SIN_REACT, SIN_DEXIE],
+        patterns: [SIN_REPO, SIN_NUBE, SIN_UI, SIN_CONTEXTO],
       }],
     },
   },
@@ -62,14 +90,13 @@ const eslintConfig = defineConfig([
     rules: {
       "@typescript-eslint/no-restricted-imports": ["error", {
         patterns: [
-          {
-            group: ["@/components/*", "**/components/*", "@/app/*", "next/*"],
-            message: "La capa de datos no conoce la UI.",
-          },
+          SIN_UI,
           {
             group: ["@/lib/analisis/*", "**/analisis/*"],
             message: "Guardar no es analizar. Si una consulta necesita una métrica, el cálculo se hace arriba (DatosContext o la página), sobre lo que el repo devolvió.",
           },
+          SIN_IA,
+          SIN_SDK_DE_MODELO,
         ],
       }],
     },
@@ -90,6 +117,8 @@ const eslintConfig = defineConfig([
             allowTypeImports: true,
             message: "De `db/esquema` la UI solo puede sacar TIPOS (`import type`). Los valores y la instancia de Dexie se usan a través de `@/lib/db/repo`.",
           },
+          SOLO_INDEX_DE_IA,
+          SIN_SDK_DE_MODELO,
         ],
       }],
     },
@@ -102,9 +131,10 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-restricted-imports": ["error", {
         patterns: [
           {
-            group: ["@/lib/DatosContext", "**/DatosContext", "@/lib/db/*", "**/db/*"],
+            group: ["@/lib/DatosContext", "**/DatosContext", "@/lib/db/*", "**/db/*", "@/lib/ia", "@/lib/ia/**"],
             message: "Las primitivas (Boton, Card, Tooltip…) no saben de finanzas: reciben props y dibujan. Un botón que lee el contexto no se puede reusar.",
           },
+          SIN_SDK_DE_MODELO,
         ],
       }],
     },
