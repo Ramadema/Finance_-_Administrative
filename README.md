@@ -23,7 +23,7 @@ de descarga del encabezado — si limpiás los datos del navegador, se van.
 ```bash
 npm install
 npm run dev          # http://localhost:3000
-npm test             # 150 tests
+npm test             # 160 tests
 npm run build        # export estático a ./out
 ```
 

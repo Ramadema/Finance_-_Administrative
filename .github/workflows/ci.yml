@@ -34,6 +34,11 @@ jobs:
       - name: Tests
         run: npm test
 
+      # Las afirmaciones de docs/ contra el código que describen: rutas que ya
+      # no existen, links rotos, un ADR sin indexar, un número que quedó viejo.
+      - name: Documentación al día
+        run: npm run docs:check -- --hechos
+
       # Confirma que la app sigue siendo export estático: si alguien mete un
       # route handler o un server action, `output: "export"` falla acá.
       - name: Export estático

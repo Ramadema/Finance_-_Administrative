@@ -21,13 +21,15 @@ es en castellano rioplatense y traducirlo a medias es peor que no traducirlo.
 ## Antes de dar algo por terminado
 
 ```bash
-npm run lint && npm run typecheck && npm test
+npm run lint && npm run typecheck && npm test && npm run docs:check
 ```
 
-Los tres tienen que pasar. No están de adorno: el lint es el que hace ciertas
+Los cuatro tienen que pasar. No están de adorno: el lint es el que hace ciertas
 las fronteras de `docs/arquitectura.md`, y los 160 tests son el contrato del
-dominio. Si tocaste el parseo del Excel, corré además `npm test` con archivos
-reales en `samples/` (la tanda de regresión se saltea sola si no están).
+dominio, y `docs:check` verifica que la documentación siga describiendo este
+repo y no el de hace tres meses. Si tocaste el parseo del Excel, corré además
+`npm test` con archivos reales en `samples/` (la tanda de regresión se saltea
+sola si no están).
 
 ## Plata: invariantes que no se rompen
 
@@ -82,6 +84,39 @@ conviene un `eslint-disable`. Hoy los únicos `eslint-disable` del repo son 7 de
 - **No romper el export estático.** Nada de `route handlers`, `middleware` ni
   `server actions`: `next build` tiene que seguir escupiendo `out/`.
 - **No commitear nada de `samples/`.** Son resúmenes bancarios reales.
+
+## La documentación se actualiza en el mismo cambio
+
+**Un cambio que amerita registro y no lo deja escrito está a medio hacer.** No
+es una tarea aparte ni para después: va en el mismo commit, porque el "después"
+no llega y el que se suma al proyecto en tres meses lee `docs/`, no el diff.
+
+Amerita registro cuando cambia **qué hace la app, qué significa una palabra del
+dominio, o por qué algo está hecho así**. No amerita cuando es un arreglo
+interno que nadie de afuera puede notar.
+
+| Si tocaste… | Actualizá |
+|---|---|
+| el esquema de la base (`src/lib/db/esquema.ts`) | `docs/playbooks/tocar-la-base.md` (versión de Dexie y del respaldo) |
+| la taxonomía (`src/lib/categorize/categorias.ts`) | `docs/dominio.md` y la tabla del README |
+| las secciones (`src/components/Nav.tsx`, `src/app/*/page.tsx`) | la tabla "Secciones" del `README.md` y `docs/arquitectura.md` |
+| cómo se detecta lo fijo (`recurrencia.ts`) | `docs/dominio.md`; si cambió el criterio, un ADR nuevo |
+| las fronteras (`eslint.config.mjs`) | `docs/arquitectura.md` y el ADR 0007 |
+| un archivo nuevo en `src/lib/` | `docs/arquitectura.md`: qué capa es y qué puede tocar |
+| un parser nuevo en `src/lib/ingest/` | `docs/playbooks/agregar-un-banco.md` y las limitaciones del README |
+| una dependencia nueva, o `next.config.ts` | un ADR: son decisiones que cuesta revertir |
+| una palabra del dominio que antes no existía | `docs/dominio.md` |
+| una decisión que costaría revertir | un ADR en `docs/decisiones/` (`/adr` lo escribe) |
+
+Dos cosas lo verifican y no dependen de que alguien se acuerde:
+`npm run docs:check` (rutas, links, índices y números que la doc afirma) y el
+hook que frena el commit cuando el cambio pide documentación y ningún doc se
+movió. Si de verdad no amerita, el commit pasa con `DOCS_OK=1` adelante —
+pero decilo, no lo uses para salir del paso.
+
+Cuando actualices un doc, **corregí lo que quedó viejo, no agregues un párrafo
+al final**. Documentación que se contradice a sí misma es peor que la
+desactualizada: no se sabe cuál de las dos versiones creer.
 
 ## Antes de escribir código, leé el playbook
 

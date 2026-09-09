@@ -27,3 +27,4 @@ vale tanto como la conclusión.
 | [0006](0006-respaldo-en-drive-sin-backend.md) | Respaldo en Drive sin backend | Vigente |
 | [0007](0007-las-fronteras-viven-en-el-lint.md) | Las fronteras viven en el lint | Vigente |
 | [0008](0008-migracion-incremental-a-modulos.md) | Migración incremental a módulos por dominio | Vigente |
+| [0009](0009-la-documentacion-se-verifica.md) | La documentación se verifica, no se promete | Vigente |
