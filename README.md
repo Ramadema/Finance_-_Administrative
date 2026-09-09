@@ -76,6 +76,11 @@ src/lib/db/           IndexedDB (Dexie) detrás de un repositorio
 src/lib/design/       Paleta validada para daltonismo y contraste
 ```
 
+**Si vas a tocar el código**, la documentación del repo está en
+[`docs/`](docs/): la arquitectura y sus fronteras, el glosario del dominio, las
+decisiones (ADRs) y los playbooks de las tareas que se repiten. Las reglas
+duras, cortas, están en [`AGENTS.md`](AGENTS.md).
+
 ### Decisiones que vale la pena conocer
 
 **Los importes son texto, no números.** BBVA exporta `"1.234,56"`. En JS,
