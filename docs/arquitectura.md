@@ -30,6 +30,77 @@ La dependencia va en un solo sentido: **UI → dominio → nada**. El dominio no
 sabe que existen React, IndexedDB ni Drive; por eso los 160 tests corren en
 milisegundos, sin navegador y sin un solo mock.
 
+## Con qué está hecho
+
+| Pieza | Qué usa | Por qué |
+|---|---|---|
+| App | **Next.js 16** con `output: "export"` + **React 19** | Da rutas, build y dev server, pero el resultado son archivos sueltos: no hay servidor que mantener ([0001](decisiones/0001-todo-corre-en-el-navegador.md)) |
+| Estilos | **Tailwind 4** (+ `clsx` y `tailwind-merge` en `cn()`) | Sin hoja de estilos que se desincronice del componente |
+| Base local | **Dexie 4** sobre IndexedDB | IndexedDB a secas es una API cruel; Dexie da consultas, transacciones y migraciones versionadas |
+| Excel del banco | **SheetJS** (`xlsx`) | Lee el `.xls` viejo que exporta BBVA. Ojo: viene del CDN de SheetJS, no del registro de npm — está fijado por URL en `package.json` |
+| Gráficos | **Recharts** y **d3-sankey** | Recharts para lo común; el Sankey se dibuja a mano porque ningún componente listo daba el flujo que hacía falta |
+| Componentes | **Radix** (dialog, dropdown-menu, tooltip) | Accesibilidad y teclado resueltos, sin estilos impuestos |
+| Íconos y animación | **lucide-react**, **motion** | |
+| Tests | **Vitest** | Corre en Node, sin jsdom, sin testing-library y sin un solo mock: el dominio es puro, así que alcanza con llamarlo |
+| Tipos y lint | **TypeScript** en `strict`, **ESLint 9** | El lint además verifica las fronteras entre capas |
+
+**Lo que no hay, a propósito**: servidor, base en la nube, API keys, LLM en el
+producto, librería de estado global (alcanza un context), y ninguna librería de
+fetching — la única red que existe es la de Drive.
+
+**Ocho dependencias están instaladas y no las importa nadie**:
+`dexie-react-hooks`, `date-fns`, `d3-shape`, `d3-array` y cuatro de Radix
+(popover, select, switch, tabs). No llegan al bundle, pero mienten: quien lee
+`package.json` —o un agente— asume que la app usa hooks de Dexie o `date-fns` y
+escribe código con ellas. Sacarlas es una limpieza pendiente.
+
+## Los cuatro caminos
+
+Todo lo que hace la app es uno de estos cuatro recorridos.
+
+**1. Entra un archivo del banco.** `ZonaCarga` recibe el `.xls` y llama a
+`importarArchivo()` (`src/lib/db/repo.ts`), que orquesta:
+
+```
+hashArchivo()          ¿este archivo ya se importó? → si sí, no duplica nada
+parsearBBVATarjeta()   filas → movimientos crudos + período + totales declarados
+                       y valida la suma contra el total que trae el archivo
+clasificar()           por cada uno: regla → memoria → semilla → sin categorizar
+asignarIds()           ids estables, derivados del contenido
+→ guarda los Movimiento y una fila Importacion con `cuadra`
+→ la UI llama recargar() del contexto
+```
+
+Si el total no cuadra, se guarda igual **pero marcado**: la pantalla de carga te
+avisa en vez de mostrarte números en los que no podés confiar.
+
+**2. Se pinta una pantalla.** `DatosContext` carga una vez
+(`movimientosDe()`, `mapaIngresos()`, `todaLaConfig()`) y de ahí sale todo lo
+demás en un `useMemo`, en este orden porque cada paso usa el anterior:
+
+```
+naturalezasDe()      qué comercios son fijos, variables o esporádicos
+serieMensual()       la foto de cada mes
+resumenDe()          el mes elegido (y el anterior, para comparar)
+gastoPorCategoria() · gastoDiario() · cuotasComprometidas() · flujoSankey()
+capacidadDe() → proyectarAhorro() → fondoEmergencia()
+generarInsights()    las observaciones, sobre todo lo anterior
+```
+
+Las páginas de `src/app/` no calculan: leen de `useDatos()` y componen.
+
+**3. Corregís algo.** Categorizar un movimiento en la tabla llama a
+`recategorizarComercio()`, que guarda la memoria **y reaplica al histórico
+entero de ese comercio** —salvo lo que hayas editado uno por uno—, y después
+`recargar()`. Por eso categorizás una vez y no vuelve a preguntar. Lo mismo con
+los ingresos y los gastos fijos que cargás a mano.
+
+**4. Respaldás.** `useSesionDrive` pide el token a Google (`lib/nube/google.ts`),
+`exportarJSON()` arma el respaldo entero y `subirRespaldo()` lo escribe en tu
+Drive. Al revés, `bajarRespaldo()` + `importarJSON()`. Si lo local y lo remoto
+difieren, **pregunta**: un merge automático sobre datos financieros puede
+duplicar o borrar movimientos sin que nadie se entere.
+
 ## Las capas
 
 | Carpeta | Qué es | Puede tocar | Nunca toca |
