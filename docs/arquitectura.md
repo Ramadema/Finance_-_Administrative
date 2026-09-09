@@ -48,11 +48,12 @@ milisegundos, sin navegador y sin un solo mock.
 producto, librería de estado global (alcanza un context), y ninguna librería de
 fetching — la única red que existe es la de Drive.
 
-**Ocho dependencias están instaladas y no las importa nadie**:
-`dexie-react-hooks`, `date-fns`, `d3-shape`, `d3-array` y cuatro de Radix
-(popover, select, switch, tabs). No llegan al bundle, pero mienten: quien lee
-`package.json` —o un agente— asume que la app usa hooks de Dexie o `date-fns` y
-escribe código con ellas. Sacarlas es una limpieza pendiente.
+**Todo lo que está en `package.json` se usa, y `npm run deps:check` lo verifica**
+en los dos sentidos: nada declarado que nadie importe, nada importado que nadie
+declare. La primera mitad no es prolijidad: una dependencia sin usar no pesa en
+el bundle —lo que nadie importa no llega al navegador— pero miente, y quien lee
+`package.json` escribe código con una librería que el repo no usa. Está contado
+en [0010](decisiones/0010-ninguna-dependencia-sin-usar.md).
 
 ## Los cuatro caminos
 

@@ -28,3 +28,4 @@ vale tanto como la conclusión.
 | [0007](0007-las-fronteras-viven-en-el-lint.md) | Las fronteras viven en el lint | Vigente |
 | [0008](0008-migracion-incremental-a-modulos.md) | Migración incremental a módulos por dominio | Vigente |
 | [0009](0009-la-documentacion-se-verifica.md) | La documentación se verifica, no se promete | Vigente |
+| [0010](0010-ninguna-dependencia-sin-usar.md) | Ninguna dependencia declarada sin usar | Vigente |

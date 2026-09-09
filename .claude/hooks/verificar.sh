@@ -47,6 +47,7 @@ if [ -n "$hay_codigo" ]; then
   verificar "El lint (fronteras entre capas)" npm run lint
   verificar "El typecheck" npm run typecheck
   verificar "Los tests" npm test
+  verificar "Las dependencias (package.json vs. lo que se importa)" npm run deps:check
   # La cantidad real, para que el chequeo de docs no tenga que correrlos de nuevo.
   tests_reales=$(printf '%s' "$ULTIMA_SALIDA" | grep -oE 'Tests +[0-9]+ passed' | grep -oE '[0-9]+' | head -1)
 fi

@@ -21,10 +21,10 @@ es en castellano rioplatense y traducirlo a medias es peor que no traducirlo.
 ## Antes de dar algo por terminado
 
 ```bash
-npm run lint && npm run typecheck && npm test && npm run docs:check
+npm run lint && npm run typecheck && npm test && npm run deps:check && npm run docs:check
 ```
 
-Los cuatro tienen que pasar. No están de adorno: el lint es el que hace ciertas
+Los cinco tienen que pasar. No están de adorno: el lint es el que hace ciertas
 las fronteras de `docs/arquitectura.md`, y los 160 tests son el contrato del
 dominio, y `docs:check` verifica que la documentación siga describiendo este
 repo y no el de hace tres meses. Si tocaste el parseo del Excel, corré además
@@ -78,7 +78,9 @@ conviene un `eslint-disable`. Hoy los únicos `eslint-disable` del repo son 7 de
   la promesa central: los movimientos no salen de la máquina. Ver
   `docs/decisiones/0001-todo-corre-en-el-navegador.md`.
 - **No agregar dependencias.** Si hace falta una, decilo y esperá — cada una es
-  peso en el bundle de una app que se baja entera al navegador.
+  peso en el bundle de una app que se baja entera al navegador. Y si dejás de
+  usar una, sacala en el mismo cambio: `deps:check` no deja que quede declarada
+  sin que nadie la importe.
 - **No cambiar el esquema de la base a la ligera.** Hay datos reales del otro
   lado y no hay servidor que los recupere: seguí `docs/playbooks/tocar-la-base.md`.
 - **No romper el export estático.** Nada de `route handlers`, `middleware` ni
