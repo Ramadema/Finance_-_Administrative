@@ -3,8 +3,8 @@
 import {
   createContext, useCallback, useContext, useEffect, useMemo, useState,
 } from "react";
-import { db, type Movimiento, type IngresoManual } from "./db/esquema";
-import { asegurarPersistencia, mapaIngresos, todaLaConfig } from "./db/repo";
+import type { Movimiento, IngresoManual } from "./db/esquema";
+import { asegurarPersistencia, mapaIngresos, movimientosDe, todaLaConfig } from "./db/repo";
 import {
   resumenDe, gastoPorCategoria, gastoDiario, gastoFueraDelMes, cuotasComprometidas, cuotasDelMes, serieMensual,
   naturalezasDe, perfiles as perfilesDe, flujoSankey, variacionPorCategoria,
@@ -86,9 +86,9 @@ export function DatosProvider({ children }: { children: React.ReactNode }) {
   const recargar = useCallback(async () => {
     try {
       const [ms, ing, cfg] = await Promise.all([
-        db().movimientos.toArray(), mapaIngresos(), todaLaConfig(),
+        movimientosDe(), mapaIngresos(), todaLaConfig(),
       ]);
-      setMovimientos(ms.sort((a, b) => b.fecha.localeCompare(a.fecha)));
+      setMovimientos(ms);
       setIngresos(ing);
       setAhorroAcumulado(Number(cfg.get("ahorroAcumulado") ?? 0));
       setFalloBase(null);
@@ -103,6 +103,7 @@ export function DatosProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- primera lectura de la base al arrancar la app.
   useEffect(() => { void recargar(); }, [recargar]);
 
   // Se pide una sola vez al arrancar. Si el navegador dice que no, el usuario

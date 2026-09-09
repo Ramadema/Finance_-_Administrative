@@ -23,7 +23,7 @@ de descarga del encabezado — si limpiás los datos del navegador, se van.
 ```bash
 npm install
 npm run dev          # http://localhost:3000
-npm test             # 150 tests
+npm test             # 160 tests
 npm run build        # export estático a ./out
 ```
 
@@ -75,6 +75,11 @@ src/lib/analisis/     Métricas, capacidad de ahorro y motor de observaciones
 src/lib/db/           IndexedDB (Dexie) detrás de un repositorio
 src/lib/design/       Paleta validada para daltonismo y contraste
 ```
+
+**Si vas a tocar el código**, la documentación del repo está en
+[`docs/`](docs/): la arquitectura y sus fronteras, el glosario del dominio, las
+decisiones (ADRs) y los playbooks de las tareas que se repiten. Las reglas
+duras, cortas, están en [`AGENTS.md`](AGENTS.md).
 
 ### Decisiones que vale la pena conocer
 

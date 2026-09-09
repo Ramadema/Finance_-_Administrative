@@ -1,0 +1,50 @@
+# Las cuatro verificaciones que sostienen el repo, en el orden en que fallan más
+# rápido. Son las mismas que corren en el hook local (`.claude/settings.json`) y
+# las mismas que pide `AGENTS.md`: un solo criterio de "está listo", no tres.
+name: CI
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # El lint no es cosmético: es lo que verifica las fronteras entre capas
+      # (docs/decisiones/0007-las-fronteras-viven-en-el-lint.md).
+      - name: Fronteras y estilo
+        run: npm run lint
+
+      - name: Tipos
+        run: npm run typecheck
+
+      # El contrato del dominio. Corre sin navegador y sin mocks; los archivos
+      # reales de samples/ no están acá, así que esa tanda se saltea sola.
+      - name: Tests
+        run: npm test
+
+      # package.json contra lo que el código realmente importa, en los dos
+      # sentidos: declarada y sin usar, o importada y sin declarar.
+      - name: Dependencias
+        run: npm run deps:check
+
+      # Las afirmaciones de docs/ contra el código que describen: rutas que ya
+      # no existen, links rotos, un ADR sin indexar, un número que quedó viejo.
+      - name: Documentación al día
+        run: npm run docs:check -- --hechos
+
+      # Confirma que la app sigue siendo export estático: si alguien mete un
+      # route handler o un server action, `output: "export"` falla acá.
+      - name: Export estático
+        run: npm run build

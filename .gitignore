@@ -38,6 +38,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Claude Code: la config del proyecto (.claude/settings.json, hooks, comandos) SÍ
+# va al repo — es parte del andamiaje. Lo personal de cada uno, no.
+.claude/settings.local.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

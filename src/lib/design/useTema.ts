@@ -18,6 +18,7 @@ export function useTema(): Tema {
       return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
     };
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- el tema solo se puede leer del DOM, y en el export estático el primer render es servidor.
     setTema(calcular());
 
     const mq = window.matchMedia("(prefers-color-scheme: dark)");

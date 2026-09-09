@@ -48,6 +48,7 @@ export function TablaMovimientos({
 
   // Llegar desde otro gráfico con otra categoría tiene que cambiar el filtro,
   // no quedarse con el primero que se montó.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- resetear el filtro cuando cambia la prop es justamente lo que se quiere acá.
   useEffect(() => setCategoria(categoriaInicial), [categoriaInicial]);
 
   const fuente = todosLosMeses ? (movimientosTodos ?? movimientos) : movimientos;
