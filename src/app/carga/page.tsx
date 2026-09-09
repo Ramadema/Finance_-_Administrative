@@ -31,6 +31,7 @@ export default function Carga() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- leer la lista de importaciones al montar: es IndexedDB, no hay forma de tenerla en el primer render.
     void refrescar();
   }, [refrescar]);
 

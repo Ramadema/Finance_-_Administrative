@@ -46,9 +46,11 @@ export function FormGastosFijos() {
     setItems(await listarGastosFijos());
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- leer los fijos guardados al montar.
   useEffect(() => { void refrescar(); }, [refrescar]);
   useEffect(() => {
     // Por defecto corre desde el primer mes que tenés cargado.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- valor inicial de un campo controlado: los períodos llegan después del primer render.
     if (!desde && periodos.length > 0) setDesde(periodos[0]);
   }, [periodos, desde]);
 

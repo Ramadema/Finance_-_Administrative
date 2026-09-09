@@ -69,6 +69,7 @@ export function useSesionDrive({
 
   // El número más fresco sin volver a crear los callbacks en cada render.
   const locales = useRef(movimientosLocales);
+  // eslint-disable-next-line react-hooks/refs -- espejo de una prop en un ref, leído solo en handlers y efectos (nunca en render).
   locales.current = movimientosLocales;
 
   const fallar = useCallback((e: unknown) => {
