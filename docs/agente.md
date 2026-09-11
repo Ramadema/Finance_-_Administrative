@@ -56,14 +56,19 @@ mostrarlos.
 | `src/lib/ia/agente.ts` | El **bucle** | todo lo anterior |
 | `src/lib/ia/respaldo.ts` | El control de números | — |
 | `src/lib/ia/proveedores/falso.ts` | Un modelo de mentira que sigue un guion: con él se testea todo sin red ni key | `tipos.ts` |
-| `src/lib/ia/proveedores/anthropic.ts` | El **adaptador** real: traduce el puerto a la API de Messages y de vuelta. Único archivo que importa el SDK | `@anthropic-ai/sdk` |
-| `src/lib/ia/clave.ts` | La key: qué se guarda en Drive (`plata-ia.json`), cómo se lee y la copia local en `localStorage` | — |
-| `src/lib/ia/index.ts` | Lo único que el resto de la app importa. El lint lo hace cumplir | — |
-| `src/components/Preguntar.tsx` | La pantalla: key, pregunta, y la respuesta con sus fuentes | `@/lib/ia` |
+| `src/lib/ia/proveedores/anthropic.ts` | El **adaptador** real: traduce el puerto a la API de Messages y de vuelta. Único archivo que importa el SDK. **Corre en el servidor** | `@anthropic-ai/sdk` |
+| `src/lib/ia/proveedores/proxy.ts` | El proveedor del **navegador**: manda la petición a `/api/modelo` con el token de Google | `tipos.ts` |
+| `src/app/api/modelo/manejador.ts` | La única ruta de servidor: verifica que quien pregunta es el dueño, agrega la key y llama al adaptador | `anthropic.ts` |
+| `src/lib/ia/modelos.ts` | Los modelos elegibles y sus precios, sin dependencias | — |
+| `src/lib/ia/preferencias.ts` | El modelo elegido en este navegador | — |
+| `src/lib/ia/index.ts` | Lo único que el navegador importa. El lint lo hace cumplir | — |
+| `src/components/Preguntar.tsx` | La pantalla: entrar con Google, preguntar, y la respuesta con sus fuentes | `@/lib/ia` |
 
 `lib/ia` es una capa con la misma regla que `lib/nube`: **es la única que puede
-hablar con un modelo**. Nadie más importa un SDK de IA, y nadie importa de
-`lib/ia` otra cosa que su `index.ts` (`eslint.config.mjs`, zona `plata/ia`).
+hablar con un modelo**. El navegador solo importa su `index.ts` —que no exporta
+el adaptador de Anthropic ni el SDK—, y el servidor (`src/app/api/modelo`) es el
+único que importa el adaptador (`eslint.config.mjs`, zonas `plata/ia` y
+`plata/servidor`).
 
 ## Las herramientas que hay
 
@@ -87,16 +92,19 @@ Para agregar una: [`playbooks/agregar-una-herramienta-al-agente.md`](playbooks/a
 
 ## Qué sale de tu máquina
 
-Con un proveedor remoto (fase 1, Anthropic con tu propia key), en cada vuelta
-viajan: el sistema (reglas, meses, la lista de categorías), tu pregunta, las
-definiciones de las herramientas, y **los resultados de las herramientas que el
-modelo pidió** — agregados por categoría o comercio, y en `buscar_movimientos`
-los movimientos que coinciden (fecha, comercio, monto). Nunca la base entera,
-nunca la descripción cruda del banco, nunca nada que el modelo no haya pedido.
+En cada vuelta viajan, del navegador a **nuestra función** `/api/modelo` y de
+ahí a Anthropic: el sistema (reglas, meses, la lista de categorías), tu
+pregunta, las definiciones de las herramientas, y **los resultados de las
+herramientas que el modelo pidió** — agregados por categoría o comercio, y en
+`buscar_movimientos` los movimientos que coinciden (fecha, comercio, monto).
+Nunca la base entera, nunca la descripción cruda del banco, nunca nada que el
+modelo no haya pedido. La función no guarda nada: es un pasamanos que agrega la
+key.
 
 No es "nada sale de tu máquina" (ADR 0001). Es "sale lo que preguntás y lo que
-hace falta para contestarlo", bajo tu key, opt-in. Está escrito en el
-[ADR 0011](decisiones/0011-agente-con-tu-propia-key.md).
+hace falta para contestarlo", solo si sos vos. Está escrito en los ADRs
+[0011](decisiones/0011-agente-con-tu-propia-key.md) y
+[0012](decisiones/0012-un-servidor-minimo-proxy-al-modelo.md).
 
 ## El adaptador de Anthropic
 
@@ -124,41 +132,38 @@ Messages. Lo que hace, y por qué, en el orden en que arma la petición:
 
 Se prueba **sin red**: el SDK acepta un `fetch` propio, y el test le pasa uno que
 guarda la petición y contesta con una respuesta armada a mano. Así se verifica la
-traducción completa —qué JSON sale, qué vuelve— sin gastar un token. Es una
+traducción completa —qué JSON sale, qué vuelve— sin gastar un token. La ruta de
+servidor se prueba igual (`manejador.test.ts`): un `fetch` que atiende a Google
+y a Anthropic, y se afirma que con otra cuenta nunca se llega a Anthropic. Es una
 técnica general para cualquier cliente HTTP, no solo este.
 
 ## Quién puede preguntar, y dónde está la key
 
-**Quien entre con la cuenta de Google del dueño.** La key vive en un archivo
-chico (`plata-ia.json`) en la carpeta privada de la app en su Drive — la misma
-carpeta oculta del respaldo, a la que solo esa cuenta puede entrar. Se pega
-**una sola vez**, con la sesión iniciada; en cualquier otro dispositivo alcanza
-con "Entrar con Google": `DatosContext` engancha en el login de Drive una
-lectura de ese archivo y copia la key a `localStorage` (`aplicarAjustes`). Al
-salir de Google, la copia se borra. Así "poder preguntar" y "haber entrado con
-tu cuenta" son la misma cosa, sin servidor y sin que la app tenga ninguna key
-propia.
+**La key está en el servidor y nada más.** Es `ANTHROPIC_API_KEY`, una variable
+de entorno que solo lee la ruta `/api/modelo` (en Vercel, Settings →
+Environment Variables; en local, `.env.local`). Nunca lleva el prefijo
+`NEXT_PUBLIC_`: todo lo que lo lleva termina dentro del JavaScript que descarga
+cualquier visitante — el Client ID de Google está ahí, literal, y es la prueba.
+La regla que lo ordena: **la key la tiene quien hace la llamada**; para que el
+navegador no la tenga, la llamada la hace el servidor ([ADR 0012](decisiones/0012-un-servidor-minimo-proxy-al-modelo.md)).
 
-Quien abra la app sin tu cuenta ve un botón para entrar y nada más. Quien entre
-con *otra* cuenta de Google llega a una carpeta vacía: no hay key, no hay
-preguntas (podría pegar la suya y gastar sus propios tokens, que no es tu
-problema).
+**Quién puede preguntar: la cuenta de Google del dueño.** El navegador manda su
+token de Google con cada petición; la ruta le pregunta a Google de quién es y
+compara el email con `DUENO_EMAIL`. Sin sesión, 401. Otra cuenta, 403. Nunca
+llega a Anthropic. Se recuerda cinco minutos para no preguntarle a Google en
+cada vuelta. Sin esa verificación, la ruta sería un proxy gratis para cualquiera
+que la encuentre — la mitad del problema que la gente olvida al "poner la key en
+el servidor".
 
-La key **no va a la base de Dexie** a propósito: la base entera viaja en el
-respaldo de datos, y una key dentro de un respaldo es una key en un archivo
-que se puede bajar y compartir. Por eso son dos archivos en Drive y no uno.
-Tampoco va al repo ni a Vercel: nada que empiece con `NEXT_PUBLIC_`, porque eso
-termina dentro del JavaScript que descarga cualquiera.
+Para el dueño, la experiencia es: entrar con Google, preguntar. En cualquier
+dispositivo. Sin pegar nada nunca.
 
-El modelo elegido, en cambio, es una preferencia **de cada dispositivo**: en el
-teléfono quizás quieras el más barato. Drive guarda uno como sugerencia inicial
-y `localStorage` manda.
+El modelo elegido es una preferencia **de cada dispositivo** (`preferencias.ts`,
+`localStorage`): en el teléfono quizás quieras el más barato. El servidor acepta
+cualquiera de la lista de `modelos.ts`.
 
-El SDK exige `dangerouslyAllowBrowser: true` para correr en el navegador. El
-nombre asusta con razón: exponer **tu** key en una app de **terceros** es
-peligroso. Acá la key es del usuario, en su navegador, y no viaja a nadie más que
-a Anthropic — el "peligro" no aplica. La protección que sí importa es externa:
-un tope de gasto mensual en la consola, para que aunque se filtre el daño tenga
+La protección que vale más que todo el código: un tope de gasto mensual en
+console.anthropic.com → Settings → Limits. Aunque algo fallara, el daño tiene
 techo.
 
 Cada respuesta muestra abajo los tokens de entrada (y cuántos vinieron del
@@ -243,7 +248,7 @@ preguntas reales son la mejor semilla.
 | | Qué | Estado |
 |---|---|---|
 | 0 | Puerto, herramientas, bucle, control de números, proveedor falso, tests, frontera en el lint | **hecha** |
-| 1 | Adaptador Anthropic (tu key en el navegador, opt-in), pantalla "Preguntar" que muestra los resultados de las herramientas como fuente y el texto como explicación, tokens y costo por pregunta | **hecha** |
+| 1 | Adaptador Anthropic en el servidor (`/api/modelo`, key en variable de entorno, solo para la cuenta del dueño), proveedor proxy en el navegador, pantalla "Preguntar" que muestra los resultados de las herramientas como fuente y el texto como explicación, tokens y costo por pregunta | **hecha** |
 | 2 | Embeddings locales (en el navegador): herramienta "movimientos parecidos" y el paso *similitud* en la cascada de categorización | siguiente |
 | 3 | Documentos adjuntos + RAG con citas | si entra Documentos |
 | 4 | El agente desde afuera de la app (un backend chico que lee tu respaldo) | supersede 0001 entero |

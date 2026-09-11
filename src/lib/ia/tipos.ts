@@ -92,3 +92,18 @@ export interface ProveedorIA {
   nombre: string;
   responder(peticion: Peticion): Promise<RespuestaModelo>;
 }
+
+/**
+ * Por qué no pudo responder, en términos que el usuario pueda resolver:
+ * `sesion` (no entró con la cuenta correcta), `servidor` (falta configurar algo
+ * del lado nuestro), `credito`, `limite`, `conexion`, `api` (Anthropic devolvió
+ * otra cosa).
+ */
+export type TipoErrorProveedor = "sesion" | "servidor" | "credito" | "limite" | "conexion" | "api";
+
+export class ErrorProveedor extends Error {
+  constructor(public readonly tipo: TipoErrorProveedor, mensaje: string) {
+    super(mensaje);
+    this.name = "ErrorProveedor";
+  }
+}

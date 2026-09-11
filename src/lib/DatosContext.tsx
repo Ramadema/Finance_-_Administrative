@@ -14,8 +14,7 @@ import { capacidadDe, proyectarAhorro, fondoEmergencia, type CapacidadAhorro } f
 import { generarInsights, historicoPorCategoria, type Insight } from "./analisis/insights";
 import type { PerfilRecurrencia, Naturaleza } from "./categorize/recurrencia";
 import { periodoAnterior } from "./utils";
-import { useSesionDrive, type SesionDrive, type ArchivosApp } from "./nube/useSesionDrive";
-import { ARCHIVO_AJUSTES, parsearAjustes, aplicarAjustes, borrarClave } from "./ia";
+import { useSesionDrive, type SesionDrive } from "./nube/useSesionDrive";
 
 /**
  * Estado global de la app.
@@ -169,21 +168,10 @@ export function DatosProvider({ children }: { children: React.ReactNode }) {
     };
   }, [movimientos, periodos, periodo, ingresosPorPeriodo, ahorroAcumulado]);
 
-  // La key del asistente vive en la carpeta privada de la app en tu Drive. Al
-  // entrar con Google se trae sola a este navegador; al salir, se olvida. Así
-  // "poder preguntar" es lo mismo que "haber entrado con tu cuenta".
-  const traerAjustesIA = useCallback(async (archivo: ArchivosApp) => {
-    const texto = await archivo.leer(ARCHIVO_AJUSTES);
-    const ajustes = texto ? parsearAjustes(texto) : null;
-    if (ajustes) aplicarAjustes(ajustes);
-  }, []);
-
   const drive = useSesionDrive({
     movimientosLocales: movimientos.length,
     recargar,
     listo: !cargando,
-    alEntrar: traerAjustesIA,
-    alSalir: borrarClave,
   });
 
   const valor: Datos = {

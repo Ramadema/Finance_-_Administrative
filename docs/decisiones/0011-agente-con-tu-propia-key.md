@@ -1,5 +1,10 @@
 # 0011 — Un agente de consulta, con tu propia key, sin servidor
 
+> **Precisado por [0012](0012-un-servidor-minimo-proxy-al-modelo.md)**: la key
+> ya no viaja al navegador ni a Drive — vive en el servidor, en una variable de
+> entorno — y quién puede preguntar lo decide `DUENO_EMAIL`. El diseño del
+> agente (herramientas, bucle, control de números) sigue tal cual.
+
 ## Contexto
 
 El dashboard contesta las preguntas que alguien pensó de antemano. Las que no

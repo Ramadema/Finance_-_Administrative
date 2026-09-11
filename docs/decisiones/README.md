@@ -19,7 +19,7 @@ vale tanto como la conclusión.
 
 | # | Decisión | Estado |
 |---|---|---|
-| [0001](0001-todo-corre-en-el-navegador.md) | Todo corre en el navegador | Vigente, acotado por 0011 |
+| [0001](0001-todo-corre-en-el-navegador.md) | Todo corre en el navegador | Vigente, acotado por 0011 y 0012 |
 | [0002](0002-importes-como-texto-en-formato-argentino.md) | Los importes son texto en formato argentino | Vigente |
 | [0003](0003-el-mes-es-el-del-resumen.md) | El mes de un gasto es el del resumen | Vigente |
 | [0004](0004-fijo-se-detecta-no-se-etiqueta.md) | Fijo se detecta, no se etiqueta | Vigente |
@@ -29,4 +29,5 @@ vale tanto como la conclusión.
 | [0008](0008-migracion-incremental-a-modulos.md) | Migración incremental a módulos por dominio | Vigente |
 | [0009](0009-la-documentacion-se-verifica.md) | La documentación se verifica, no se promete | Vigente |
 | [0010](0010-ninguna-dependencia-sin-usar.md) | Ninguna dependencia declarada sin usar | Vigente |
-| [0011](0011-agente-con-tu-propia-key.md) | Un agente de consulta, con tu propia key, sin servidor | Vigente — acota a 0001 |
+| [0011](0011-agente-con-tu-propia-key.md) | Un agente de consulta, con tu propia key, sin servidor | Vigente, precisado por 0012 |
+| [0012](0012-un-servidor-minimo-proxy-al-modelo.md) | Un servidor mínimo: proxy autenticado al modelo | Vigente — supersede en parte a 0001 |

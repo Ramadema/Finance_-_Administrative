@@ -4,13 +4,13 @@ Dashboard personal de finanzas. Subís el Excel de movimientos que te da BBVA y
 te muestra a dónde se va la plata: en qué gastás, cuánto es fijo, cuánto te
 sobra y qué cuotas ya tenés comprometidas.
 
-**Todo corre en tu navegador.** No hay servidor, no hay base de datos en la nube
-y no hay ninguna API key nuestra. Tus movimientos bancarios nunca salen de tu
-máquina — salvo que uses **Preguntar**, el asistente opcional que usa tu propia
-key de Anthropic, guardada en tu Google Drive: solo quien entre con tu cuenta
-puede preguntar, y ahí sale tu pregunta y lo que hace falta para contestarla
-(totales por categoría o comercio, o los movimientos que coincidan con una
-búsqueda), nunca la base entera ni la descripción cruda del banco.
+**Tus datos viven en tu navegador.** No hay base de datos en la nube. El único
+código de servidor es el del asistente **Preguntar**: una función que tiene la
+key de Anthropic del dueño y solo le responde a su cuenta de Google. Cuando
+preguntás, sale tu pregunta y lo que hace falta para contestarla (totales por
+categoría o comercio, o los movimientos que coincidan con una búsqueda), pasa
+por esa función —que no guarda nada— y llega a Anthropic. Nunca la base entera
+ni la descripción cruda del banco.
 
 ## Cómo se usa
 
@@ -28,12 +28,17 @@ de descarga del encabezado — si limpiás los datos del navegador, se van.
 ```bash
 npm install
 npm run dev          # http://localhost:3000
-npm test             # 195 tests
-npm run build        # export estático a ./out
+npm test             # 203 tests
+npm run build        # páginas prerenderizadas + la función /api/modelo
 ```
 
 La app arranca vacía. Los únicos datos que muestra son los de los archivos que
 vos importás — no hay data de ejemplo precargada ni valores por defecto.
+
+Para Drive y para Preguntar hace falta un `.env.local` (copiá `.env.example`):
+`NEXT_PUBLIC_GOOGLE_CLIENT_ID` para entrar con Google, y —solo servidor, nunca
+con `NEXT_PUBLIC_`— `ANTHROPIC_API_KEY` y `DUENO_EMAIL`, la cuenta de Google que
+puede preguntar.
 
 `samples/` es donde dejás tus `.xls` del banco: `.gitignore` los bloquea, así
 que nunca se suben al repo. Si están, `npm test` corre además una tanda de
@@ -41,15 +46,18 @@ regresión contra ellos; si no, esa tanda se saltea sola.
 
 ## Deploy
 
-Es un export estático, así que anda en el plan gratis de Vercel sin ninguna
-función de servidor:
+Vercel, plan Hobby (gratis para uso personal). Las páginas se prerenderizan y la
+única función de servidor es `/api/modelo`:
 
 ```bash
 npx vercel            # o conectá el repo desde vercel.com
 ```
 
-Al ser archivos estáticos también se puede hostear en GitHub Pages, Netlify o
-Cloudflare Pages sin tocar una línea.
+En el proyecto de Vercel → Settings → Environment Variables cargá las tres
+variables de `.env.example`. `ANTHROPIC_API_KEY` y `DUENO_EMAIL` van sin el
+prefijo `NEXT_PUBLIC_`: son del servidor y el navegador no las ve nunca. Y en
+la consola de Google Cloud, agregá tu dominio de Vercel a los orígenes
+autorizados del Client ID.
 
 ## Secciones
 
@@ -61,7 +69,7 @@ Cloudflare Pages sin tocar una línea.
 | **Ahorro** | Cargás tus ingresos → capacidad de ahorro, proyección a 12 meses, simulador de recorte, fondo de emergencia |
 | **Alertas** | Observaciones automáticas sobre tu propio historial |
 | **Movimientos** | El detalle auditable; acá categorizás lo que quedó suelto |
-| **Preguntar** | Le preguntás a tus datos en castellano. El modelo elige qué calcular y la app calcula; se ve de dónde salió cada número. Solo con tu cuenta de Google y tu propia key de Anthropic |
+| **Preguntar** | Le preguntás a tus datos en castellano. El modelo elige qué calcular y la app calcula; se ve de dónde salió cada número. Solo para la cuenta de Google del dueño |
 
 ## Cómo está armado
 

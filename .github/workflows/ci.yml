@@ -44,7 +44,7 @@ jobs:
       - name: Documentación al día
         run: npm run docs:check -- --hechos
 
-      # Confirma que la app sigue siendo export estático: si alguien mete un
-      # route handler o un server action, `output: "export"` falla acá.
-      - name: Export estático
+      # Las páginas siguen prerenderizadas y el único código de servidor es
+      # /api/modelo. Si algo deja de compilar, se sabe acá y no en Vercel.
+      - name: Build
         run: npm run build

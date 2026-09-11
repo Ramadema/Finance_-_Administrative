@@ -172,7 +172,9 @@ const OBLIGACIONES = [
   { patron: /^eslint\.config\.mjs$/, dice:
     "Cambiaron las fronteras entre capas → docs/arquitectura.md y el ADR 0007." },
   { patron: /^next\.config\.ts$/, dice:
-    "Cambió la configuración del export estático → ADR 0001 (es la promesa de que no hay servidor)." },
+    "Cambió la configuración de Next → ADR 0012 (qué corre en el servidor y qué no) y docs/arquitectura.md." },
+  { patron: /^src\/app\/api\/.*\.ts$/, dice:
+    "Cambió la ruta de servidor → docs/agente.md; si cambia qué hace o quién puede usarla, un ADR." },
   { patron: /^package\.json$/, dice:
     "Cambió package.json. Si es una dependencia nueva, eso es una decisión: va un ADR." },
   { patron: /^src\/app\/[^/]+\/page\.tsx$/, soloNuevos: true, dice:

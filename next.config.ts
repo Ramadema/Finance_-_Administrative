@@ -1,12 +1,13 @@
 import type { NextConfig } from "next";
 
 /**
- * Export estático: la app es 100% cliente (IndexedDB), no hay ninguna función
- * de servidor. Así el hosting es archivos sueltos — gratis en Vercel y
- * portable a cualquier otro lado sin tocar código.
+ * Casi toda la app es cliente (IndexedDB en el navegador). El único código de
+ * servidor es `src/app/api/modelo`, un proxy al modelo que existe para que la
+ * key de Anthropic viva en una variable de entorno del servidor y no en el
+ * bundle. Por eso ya no es `output: "export"` (ADR 0012): Vercel la corre como
+ * app Next con una función, gratis en el plan Hobby para uso personal.
  */
 const nextConfig: NextConfig = {
-  output: "export",
   images: { unoptimized: true },
   /**
    * Solo afecta a `next dev`. Sin esto, Next bloquea sus propios chunks cuando

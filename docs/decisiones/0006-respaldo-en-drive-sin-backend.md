@@ -12,9 +12,9 @@ Un backend propio resolvía la sincronización pero rompe
 ## Decisión
 
 Respaldo en el Google Drive **del propio usuario**, con su sesión, contra un
-único archivo. *(Desde [0011](0011-agente-con-tu-propia-key.md) la misma carpeta
-privada guarda además `plata-ia.json`, la key del asistente — en otro archivo,
-para que bajar el respaldo de datos nunca arrastre una credencial.)* OAuth desde el navegador con un `client_id` público
+único archivo. *(El [0011](0011-agente-con-tu-propia-key.md) llegó a guardar acá
+también la key del asistente; desde el [0012](0012-un-servidor-minimo-proxy-al-modelo.md)
+vive en el servidor y la carpeta vuelve a tener solo el respaldo.)* OAuth desde el navegador con un `client_id` público
 (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`), sin client secret porque no hay servidor donde
 esconderlo — y no hace falta: el `client_id` solo identifica a la app, lo que
 autoriza es la sesión de Google del usuario.

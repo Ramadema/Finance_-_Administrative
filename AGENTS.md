@@ -25,7 +25,7 @@ npm run lint && npm run typecheck && npm test && npm run deps:check && npm run d
 ```
 
 Los cinco tienen que pasar. No están de adorno: el lint es el que hace ciertas
-las fronteras de `docs/arquitectura.md`, y los 195 tests son el contrato del
+las fronteras de `docs/arquitectura.md`, y los 203 tests son el contrato del
 dominio, y `docs:check` verifica que la documentación siga describiendo este
 repo y no el de hace tres meses. Si tocaste el parseo del Excel, corré además
 `npm test` con archivos reales en `samples/` (la tanda de regresión se saltea
@@ -72,7 +72,10 @@ El sentido de las dependencias es UI → dominio → nada. Está en
 - **`src/components/ui/`** son primitivas tontas: reciben props, no conocen el
   dominio.
 - **`src/lib/ia/`** es lo único que habla con un modelo de lenguaje. Nadie más
-  importa un SDK de IA, y de `lib/ia` se importa solo `@/lib/ia` (su `index.ts`).
+  importa un SDK de IA, y de `lib/ia` el navegador importa solo `@/lib/ia` (su
+  `index.ts`).
+- **`src/app/api/`** es el servidor: no tiene navegador ni base. No importa
+  Dexie, el contexto, la nube ni componentes. Sí el adaptador de Anthropic.
 
 Si una regla te estorba, la pregunta es si la frontera está mal puesta — no si
 conviene un `eslint-disable`. Hoy los únicos `eslint-disable` del repo son 7 de
@@ -80,24 +83,26 @@ conviene un `eslint-disable`. Hoy los únicos `eslint-disable` del repo son 7 de
 
 ## Qué NO hacer sin que te lo pidan
 
-- **No agregar backend ni ninguna key nuestra.** La única IA del producto es el
-  agente de `lib/ia`, opt-in y con la key del propio usuario en su navegador
-  (`docs/decisiones/0011-agente-con-tu-propia-key.md`). Todo lo demás sigue
-  siendo local: `docs/decisiones/0001-todo-corre-en-el-navegador.md`.
+- **El único código de servidor es `src/app/api/modelo`**: un proxy al modelo
+  que verifica que quien pregunta es el dueño, agrega la key y no guarda nada.
+  No agregar otras rutas, ni datos del lado del servidor, ni otras keys, sin un
+  ADR (`docs/decisiones/0012-un-servidor-minimo-proxy-al-modelo.md`). Todo lo
+  demás sigue siendo local: `docs/decisiones/0001-todo-corre-en-el-navegador.md`.
 - **No agregar dependencias.** Si hace falta una, decilo y esperá — cada una es
   peso en el bundle de una app que se baja entera al navegador. Y si dejás de
   usar una, sacala en el mismo cambio: `deps:check` no deja que quede declarada
   sin que nadie la importe.
 - **No cambiar el esquema de la base a la ligera.** Hay datos reales del otro
   lado y no hay servidor que los recupere: seguí `docs/playbooks/tocar-la-base.md`.
-- **No romper el export estático.** Nada de `route handlers`, `middleware` ni
-  `server actions`: `next build` tiene que seguir escupiendo `out/`.
+- **Las páginas siguen prerenderizadas.** Nada de `server actions` ni de leer
+  la base desde el servidor: no hay base ahí. `npm run build` tiene que mostrar
+  todas las páginas como estáticas (○) y una sola función (ƒ), `/api/modelo`.
 - **No commitear nada de `samples/`.** Son resúmenes bancarios reales.
-- **La key del usuario vive en su Drive (`plata-ia.json`, carpeta privada de la
-  app) y se copia a `localStorage` al entrar con Google** (`src/lib/ia/clave.ts`).
-  Nunca va a la base ni a `Config`: la base viaja en el respaldo de datos y la
-  key no puede viajar con ella. No se loguea ni se muestra entera en pantalla.
-  Preguntar exige haber entrado con la cuenta del dueño; no agregues atajos.
+- **La key de Anthropic es `ANTHROPIC_API_KEY` en el servidor y nada más.**
+  Nunca con prefijo `NEXT_PUBLIC_` (eso la pega dentro del bundle que baja
+  cualquiera), nunca en el código, nunca en el navegador, nunca en un log.
+  `DUENO_EMAIL` decide quién puede preguntar: no agregues atajos que salteen
+  esa verificación.
 
 ## La documentación se actualiza en el mismo cambio
 
@@ -121,6 +126,7 @@ interno que nadie de afuera puede notar.
 | una dependencia nueva, o `next.config.ts` | un ADR: son decisiones que cuesta revertir |
 | una palabra del dominio que antes no existía | `docs/dominio.md` |
 | el agente (`src/lib/ia/`): una herramienta, el sistema, el bucle | `docs/agente.md` |
+| la ruta de servidor (`src/app/api/`) | `docs/agente.md` y, si cambia qué hace o quién puede usarla, un ADR |
 | una decisión que costaría revertir | un ADR en `docs/decisiones/` (`/adr` lo escribe) |
 
 Dos cosas lo verifican y no dependen de que alguien se acuerde:

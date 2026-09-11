@@ -28,7 +28,16 @@ export const HAY_CLIENT_ID = CLIENT_ID !== "";
  * documentos, fotos ni al resto de tus archivos. Si algún día ves que la app
  * pide más que esto, algo está mal.
  */
-const PERMISO = "https://www.googleapis.com/auth/drive.appdata";
+/**
+ * Dos permisos: la carpeta privada de la app en Drive, y el email de la cuenta.
+ * El email no es para mostrarlo: es lo que la ruta `/api/modelo` compara con
+ * `DUENO_EMAIL` para dejar preguntar solo al dueño. Sin el segundo permiso el
+ * servidor no tendría forma de saber quién le habla.
+ */
+const PERMISO = [
+  "https://www.googleapis.com/auth/drive.appdata",
+  "https://www.googleapis.com/auth/userinfo.email",
+].join(" ");
 
 // ---------- Tipos mínimos de Google Identity Services ----------
 // Se declaran acá en vez de sumar un paquete de tipos: es la única superficie

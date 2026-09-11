@@ -27,14 +27,14 @@ navegador, y todo lo que ves arriba es cálculo derivado de esos movimientos.
 ```
 
 La dependencia va en un solo sentido: **UI → dominio → nada**. El dominio no
-sabe que existen React, IndexedDB ni Drive; por eso los 195 tests corren en
+sabe que existen React, IndexedDB ni Drive; por eso los 203 tests corren en
 milisegundos, sin navegador y sin un solo mock.
 
 ## Con qué está hecho
 
 | Pieza | Qué usa | Por qué |
 |---|---|---|
-| App | **Next.js 16** con `output: "export"` + **React 19** | Da rutas, build y dev server, pero el resultado son archivos sueltos: no hay servidor que mantener ([0001](decisiones/0001-todo-corre-en-el-navegador.md)) |
+| App | **Next.js 16** + **React 19** | Páginas prerenderizadas y una sola función de servidor, `/api/modelo`, que existe para que la key del modelo no viaje al navegador ([0001](decisiones/0001-todo-corre-en-el-navegador.md), [0012](decisiones/0012-un-servidor-minimo-proxy-al-modelo.md)) |
 | Estilos | **Tailwind 4** (+ `clsx` y `tailwind-merge` en `cn()`) | Sin hoja de estilos que se desincronice del componente |
 | Base local | **Dexie 4** sobre IndexedDB | IndexedDB a secas es una API cruel; Dexie da consultas, transacciones y migraciones versionadas |
 | Excel del banco | **SheetJS** (`xlsx`) | Lee el `.xls` viejo que exporta BBVA. Ojo: viene del CDN de SheetJS, no del registro de npm — está fijado por URL en `package.json` |
@@ -42,13 +42,13 @@ milisegundos, sin navegador y sin un solo mock.
 | Componentes | **Radix** (dialog, dropdown-menu, tooltip) | Accesibilidad y teclado resueltos, sin estilos impuestos |
 | Íconos y animación | **lucide-react**, **motion** | |
 | Tests | **Vitest** | Corre en Node, sin jsdom, sin testing-library y sin un solo mock: el dominio es puro, así que alcanza con llamarlo |
-| Modelo de lenguaje | **`@anthropic-ai/sdk`**, importado solo desde `src/lib/ia/proveedores/` | El agente opcional de [`agente.md`](agente.md). La key es del usuario y vive en su navegador; el lint impide que otra capa toque el SDK |
+| Modelo de lenguaje | **`@anthropic-ai/sdk`**, solo en el servidor (`src/lib/ia/proveedores/anthropic.ts`, usado por `src/app/api/modelo/`) | El agente de [`agente.md`](agente.md). La key es una variable de entorno del servidor; el navegador habla con `/api/modelo` y el lint impide que toque el SDK |
 | Tipos y lint | **TypeScript** en `strict`, **ESLint 9** | El lint además verifica las fronteras entre capas |
 
-**Lo que no hay, a propósito**: servidor, base en la nube, ninguna key nuestra,
+**Lo que no hay, a propósito**: servidor *con datos*, base en la nube,
 librería de estado global (alcanza un context), y ninguna librería de fetching.
-La red que existe es la de Drive y, si el usuario activa el agente con su propia
-key, la del proveedor del modelo ([`agente.md`](agente.md)).
+La red que existe es la de Drive y, al preguntar, la de nuestra función
+`/api/modelo` hacia Anthropic ([`agente.md`](agente.md)).
 
 **Todo lo que está en `package.json` se usa, y `npm run deps:check` lo verifica**
 en los dos sentidos: nada declarado que nadie importe, nada importado que nadie
@@ -98,8 +98,9 @@ entero de ese comercio** —salvo lo que hayas editado uno por uno—, y despué
 `recargar()`. Por eso categorizás una vez y no vuelve a preguntar. Lo mismo con
 los ingresos y los gastos fijos que cargás a mano.
 
-**5. Preguntás.** `preguntar()` (`src/lib/ia/agente.ts`) le manda al modelo tu
-pregunta, las reglas y las herramientas; el modelo pide una o varias
+**5. Preguntás.** `preguntar()` (`src/lib/ia/agente.ts`) le manda al modelo —a
+través de nuestra función `/api/modelo`, que verifica que sos el dueño y agrega
+la key— tu pregunta, las reglas y las herramientas; el modelo pide una o varias
 (`resumen_del_mes`, `buscar_movimientos`…), el agente las ejecuta sobre los
 mismos movimientos que ya están en memoria y le devuelve los resultados, y así
 hasta que responde. **El modelo nunca calcula**: las herramientas traen los
@@ -122,7 +123,8 @@ duplicar o borrar movimientos sin que nadie se entere.
 | `src/lib/db/` | Esquema Dexie + repositorio | IndexedDB | React, `analisis/` |
 | `src/lib/nube/` | OAuth de Google y respaldo en Drive | red, `db/` | React salvo su hook, `analisis/` |
 | `src/lib/design/` | Paleta y tema | — | dominio, base |
-| `src/lib/ia/` | El agente: puerto, herramientas, bucle. Única capa que habla con un modelo | `analisis/`, `categorize/`, un SDK de modelo | React, base, `nube/`, UI |
+| `src/lib/ia/` | El agente: puerto, herramientas, bucle, y los dos proveedores (proxy para el navegador, Anthropic para el servidor) | `analisis/`, `categorize/`, un SDK de modelo | React, base, `nube/`, UI |
+| `src/app/api/` | La única ruta de servidor: `/api/modelo`, proxy autenticado al modelo. Sin base, sin datos | `lib/ia/proveedores/anthropic` | Dexie, contexto, `nube/`, componentes |
 | `src/lib/DatosContext.tsx` | Estado global: carga y orquesta el cálculo | todo `lib/` | — |
 | `src/components/` | Componentes con dominio adentro | `useDatos`, `db/repo` | `dexie`, `db()` |
 | `src/components/ui/` | Primitivas tontas (Boton, Card, Tooltip) | props | dominio, base, contexto |
@@ -145,6 +147,7 @@ se lee solo. Lo que hoy se prohíbe:
 - El contexto y la base dentro de `components/ui/`.
 - Un SDK de modelo fuera de `lib/ia`; `lib/ia` importado por otra ruta que su
   `index.ts`; el dominio importando `lib/ia`.
+- Dexie, el contexto, la nube o componentes dentro de `src/app/api/`.
 - `parseFloat` en todo `src/` (ver `decisiones/0002`).
 
 El repo pasa todas sin una sola excepción. Si agregás una regla nueva, tiene que
@@ -185,9 +188,11 @@ Hasta que eso pase, la estructura de arriba es la real y la que hay que respetar
 
 ## Lo que no se negocia
 
-- **Cliente puro.** `next.config.ts` tiene `output: "export"`. Nada de route
-  handlers, middleware ni server actions: `npm run build` tiene que seguir
-  escribiendo `out/`.
+- **Los datos viven en el navegador.** El único código de servidor es
+  `src/app/api/modelo`, un proxy al modelo que no guarda nada y existe para que
+  la key no viaje al navegador ([0012](decisiones/0012-un-servidor-minimo-proxy-al-modelo.md)).
+  Nada de server actions, nada de leer o guardar datos del lado del servidor, y
+  ninguna ruta nueva sin ADR.
 - **Los datos no salen de la máquina** salvo al respaldo de Drive del propio
   usuario, con su sesión (`decisiones/0006`).
 - **Sin datos de ejemplo.** La app arranca vacía y muestra únicamente lo que se

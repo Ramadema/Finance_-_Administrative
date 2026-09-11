@@ -1,8 +1,10 @@
 # 0001 — Todo corre en el navegador
 
-> **Acotado por [0011](0011-agente-con-tu-propia-key.md)**: si el usuario activa el
-> agente con su propia key, sale de su máquina la pregunta y lo que hace falta
-> para contestarla. Todo lo demás de este ADR sigue vigente.
+> **Acotado por [0011](0011-agente-con-tu-propia-key.md) y [0012](0012-un-servidor-minimo-proxy-al-modelo.md)**:
+> el asistente opcional habla con Anthropic a través de una única función de
+> servidor (`/api/modelo`) que existe para guardar la key y no persiste nada;
+> al preguntar, sale la pregunta y lo que hace falta para contestarla. Los datos
+> siguen en el navegador y ninguna otra parte de la app tiene servidor.
 
 ## Contexto
 

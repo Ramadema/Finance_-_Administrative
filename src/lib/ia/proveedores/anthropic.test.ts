@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { proveedorAnthropic, costoEstimadoUSD, ErrorProveedor } from "./anthropic";
-import type { Peticion } from "../tipos";
+import { proveedorAnthropic } from "./anthropic";
+import { costoEstimadoUSD } from "../modelos";
+import { ErrorProveedor, type Peticion } from "../tipos";
 
 /**
  * Un `fetch` que no sale a la red: guarda lo que el SDK quiso mandar y contesta
@@ -128,11 +129,11 @@ describe("proveedorAnthropic → respuesta", () => {
     expect(r.texto).toMatch(/no quiso contestar/);
   });
 
-  it("una key rechazada se convierte en un error que el usuario entiende", async () => {
+  it("una key rechazada se convierte en un error de configuración del servidor", async () => {
     const { fetch } = fetchFalso({ type: "error", error: { type: "authentication_error", message: "invalid x-api-key" } }, 401);
     const intento = proveedorAnthropic({ clave: "mala", fetch, maxReintentos: 0 }).responder(peticion);
     await expect(intento).rejects.toBeInstanceOf(ErrorProveedor);
-    await expect(intento).rejects.toMatchObject({ tipo: "clave" });
+    await expect(intento).rejects.toMatchObject({ tipo: "servidor" });
   });
 });
 

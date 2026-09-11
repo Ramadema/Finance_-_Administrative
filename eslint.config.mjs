@@ -125,6 +125,24 @@ const eslintConfig = defineConfig([
   },
 
   {
+    // El único código de servidor: el proxy al modelo. No tiene navegador ni base:
+    // no puede tocar Dexie, el contexto, la nube ni componentes. Sí el adaptador
+    // de Anthropic, porque para eso existe. Va DESPUÉS de "plata/ui" porque
+    // `src/app/**` también lo alcanza y acá gana el último.
+    name: "plata/servidor",
+    files: ["src/app/api/**"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": ["error", {
+        paths: [...SIN_REACT, SIN_DEXIE],
+        patterns: [
+          SIN_REPO, SIN_NUBE, SIN_CONTEXTO,
+          { group: ["@/components/*", "**/components/*"], message: "El servidor no renderiza." },
+        ],
+      }],
+    },
+  },
+
+  {
     name: "plata/ui-primitivas",
     files: ["src/components/ui/**"],
     rules: {

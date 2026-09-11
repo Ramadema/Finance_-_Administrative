@@ -8,10 +8,11 @@ sección conteste **una** pregunta que las otras seis no contestan.
 `src/app/<ruta>/page.tsx`, con `"use client"`. La página **compone y no
 calcula**: saca lo que necesita de `useDatos()` y arma componentes.
 
-El build es export estático: la ruta tiene que ser estática. Nada de segmentos
-dinámicos que dependan del servidor, ni route handlers, ni server actions. Para
-"ver el detalle de X", filtrá con estado o con query params en el cliente, como
-ya hace Movimientos con la categoría.
+Las páginas se prerenderizan y no tienen servidor: nada de segmentos dinámicos
+que dependan de datos del servidor, ni server actions, ni leer la base desde
+ahí (no hay base ahí). Para "ver el detalle de X", filtrá con estado o con query
+params en el cliente, como ya hace Movimientos con la categoría. La única ruta de
+servidor es `src/app/api/modelo`, y agregar otra es una decisión que lleva ADR.
 
 ## 2. El menú
 
@@ -46,4 +47,5 @@ La app arranca vacía y esa es la primera pantalla que va a ver alguien:
 npm run lint && npm run typecheck && npm test && npm run build
 ```
 
-El `build` acá sí importa: es lo que confirma que la ruta sigue siendo estática.
+El `build` acá sí importa: la página nueva tiene que salir como estática (○),
+no como función (ƒ).
