@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, PieChart, Repeat, PiggyBank, Lightbulb, Receipt, Upload,
+  LayoutDashboard, PieChart, Repeat, PiggyBank, Lightbulb, Receipt, Upload, MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDatos } from "@/lib/DatosContext";
@@ -20,6 +20,7 @@ export const SECCIONES = [
   { href: "/ahorro", nombre: "Ahorro", corto: "Ahorro", Icono: PiggyBank },
   { href: "/insights", nombre: "Alertas", corto: "Alertas", Icono: Lightbulb },
   { href: "/movimientos", nombre: "Movimientos", corto: "Detalle", Icono: Receipt },
+  { href: "/preguntar", nombre: "Preguntar", corto: "Preguntá", Icono: MessageSquare },
   { href: "/carga", nombre: "Cargar resumen", corto: "Cargar", Icono: Upload },
 ] as const;
 

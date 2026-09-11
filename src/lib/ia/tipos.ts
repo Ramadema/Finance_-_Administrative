@@ -12,12 +12,14 @@
  * los proveedores pueden garantizar: sin propiedades de más y con todas las
  * declaradas en `required`. Lo opcional se modela como `["tipo", "null"]`.
  */
-export interface EsquemaParametros {
+export type EsquemaParametros = {
   type: "object";
   properties: Record<string, unknown>;
   required: string[];
   additionalProperties: false;
-}
+};
+// `type` y no `interface` a propósito: el SDK tipa el esquema con un índice
+// `[k: string]: unknown`, y TypeScript solo considera asignable a eso a un alias.
 
 export interface DefinicionHerramienta {
   /** snake_case: es lo que el modelo escribe para llamarla. */
@@ -47,8 +49,28 @@ export interface ResultadoHerramienta {
 
 export type Mensaje =
   | { rol: "usuario"; texto: string }
-  | { rol: "asistente"; texto: string; llamadas: LlamadaHerramienta[] }
+  | {
+      rol: "asistente";
+      texto: string;
+      llamadas: LlamadaHerramienta[];
+      /**
+       * Lo que el proveedor devolvió, tal cual, para devolvérselo tal cual.
+       * Algunos modelos razonan antes de pedir una herramienta y exigen que ese
+       * razonamiento vuelva intacto en la siguiente vuelta; el agente no lo
+       * entiende ni lo necesita, solo lo guarda y lo repite.
+       */
+      crudo?: unknown;
+    }
   | { rol: "resultados"; resultados: ResultadoHerramienta[] };
+
+/** Tokens de una vuelta. Es lo que se cobra: conviene verlo. */
+export interface Uso {
+  entrada: number;
+  salida: number;
+  /** Parte del prefijo que el proveedor ya tenía cacheado: se cobra a una fracción. */
+  cacheLeido: number;
+  cacheEscrito: number;
+}
 
 export interface Peticion {
   sistema: string;
@@ -59,8 +81,11 @@ export interface Peticion {
 export interface RespuestaModelo {
   texto: string;
   llamadas: LlamadaHerramienta[];
-  /** `herramientas` = quiere resultados antes de seguir; `cortado` = se quedó sin tokens. */
+  /** `herramientas` = quiere resultados antes de seguir; `cortado` = se quedó sin tokens o no quiso. */
   fin: "terminado" | "herramientas" | "cortado";
+  /** Ver `Mensaje.crudo`. */
+  crudo?: unknown;
+  uso?: Uso;
 }
 
 export interface ProveedorIA {

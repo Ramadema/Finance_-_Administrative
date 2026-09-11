@@ -8,4 +8,9 @@ export { preguntar, type Conversacion, type Dependencias, type Paso } from "./ag
 export { HERRAMIENTAS, type ContextoDatos, type Herramienta } from "./herramientas";
 export { armarSistema } from "./sistema";
 export { numerosSinRespaldo } from "./respaldo";
-export type { ProveedorIA, Peticion, RespuestaModelo, Mensaje, DefinicionHerramienta } from "./tipos";
+export type { ProveedorIA, Peticion, RespuestaModelo, Mensaje, DefinicionHerramienta, Uso } from "./tipos";
+export {
+  proveedorAnthropic, costoEstimadoUSD, ErrorProveedor,
+  MODELOS, MODELO_POR_DEFECTO, esModelo, type ModeloId,
+} from "./proveedores/anthropic";
+export { suscribirIA, leerClave, guardarClave, borrarClave, leerModelo, guardarModelo } from "./clave";

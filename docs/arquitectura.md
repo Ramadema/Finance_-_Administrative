@@ -27,7 +27,7 @@ navegador, y todo lo que ves arriba es cálculo derivado de esos movimientos.
 ```
 
 La dependencia va en un solo sentido: **UI → dominio → nada**. El dominio no
-sabe que existen React, IndexedDB ni Drive; por eso los 184 tests corren en
+sabe que existen React, IndexedDB ni Drive; por eso los 192 tests corren en
 milisegundos, sin navegador y sin un solo mock.
 
 ## Con qué está hecho
@@ -42,6 +42,7 @@ milisegundos, sin navegador y sin un solo mock.
 | Componentes | **Radix** (dialog, dropdown-menu, tooltip) | Accesibilidad y teclado resueltos, sin estilos impuestos |
 | Íconos y animación | **lucide-react**, **motion** | |
 | Tests | **Vitest** | Corre en Node, sin jsdom, sin testing-library y sin un solo mock: el dominio es puro, así que alcanza con llamarlo |
+| Modelo de lenguaje | **`@anthropic-ai/sdk`**, importado solo desde `src/lib/ia/proveedores/` | El agente opcional de [`agente.md`](agente.md). La key es del usuario y vive en su navegador; el lint impide que otra capa toque el SDK |
 | Tipos y lint | **TypeScript** en `strict`, **ESLint 9** | El lint además verifica las fronteras entre capas |
 
 **Lo que no hay, a propósito**: servidor, base en la nube, ninguna key nuestra,

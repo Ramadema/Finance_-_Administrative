@@ -1,4 +1,4 @@
-import type { LlamadaHerramienta, Mensaje, ProveedorIA, ResultadoHerramienta } from "./tipos";
+import type { LlamadaHerramienta, Mensaje, ProveedorIA, ResultadoHerramienta, Uso } from "./tipos";
 import { EntradaInvalida, type ContextoDatos, type Herramienta } from "./herramientas";
 import { armarSistema } from "./sistema";
 import { numerosSinRespaldo } from "./respaldo";
@@ -30,6 +30,8 @@ export interface Conversacion {
   /** La transcripción completa tal como la vio el modelo. Para depurar y para aprender. */
   mensajes: Mensaje[];
   vueltas: number;
+  /** Tokens sumados de todas las vueltas. */
+  uso: Uso;
 }
 
 export interface Dependencias {
@@ -40,6 +42,8 @@ export interface Dependencias {
   sistema?: string;
   /** Idas y vueltas con el modelo antes de cortar. Un agente que no para es un agente que factura. */
   maxVueltas?: number;
+  /** Se llama con cada herramienta ejecutada, para mostrar el progreso mientras el modelo piensa. */
+  alPaso?: (paso: Paso) => void;
 }
 
 export async function preguntar(pregunta: string, deps: Dependencias): Promise<Conversacion> {
@@ -50,6 +54,7 @@ export async function preguntar(pregunta: string, deps: Dependencias): Promise<C
 
   const mensajes: Mensaje[] = [{ rol: "usuario", texto: pregunta }];
   const pasos: Paso[] = [];
+  const uso: Uso = { entrada: 0, salida: 0, cacheLeido: 0, cacheEscrito: 0 };
   let ultimoTexto = "";
 
   const ejecutar = (ll: LlamadaHerramienta): ResultadoHerramienta => {
@@ -71,7 +76,7 @@ export async function preguntar(pregunta: string, deps: Dependencias): Promise<C
   };
 
   const cerrar = (fin: Conversacion["fin"], vueltas: number): Conversacion => ({
-    pregunta, pasos, respuesta: ultimoTexto, fin, vueltas, mensajes,
+    pregunta, pasos, respuesta: ultimoTexto, fin, vueltas, mensajes, uso,
     sinRespaldo: numerosSinRespaldo(ultimoTexto, pasos.map((p) => p.resultado), pregunta),
   });
 
@@ -79,8 +84,12 @@ export async function preguntar(pregunta: string, deps: Dependencias): Promise<C
     // Una foto, no la referencia: el bucle sigue agregando mensajes y el proveedor
     // (o un test) puede guardarse la petición para mirarla después.
     const r = await proveedor.responder({ sistema, mensajes: [...mensajes], herramientas: definiciones });
-    mensajes.push({ rol: "asistente", texto: r.texto, llamadas: r.llamadas });
+    mensajes.push({ rol: "asistente", texto: r.texto, llamadas: r.llamadas, crudo: r.crudo });
     if (r.texto) ultimoTexto = r.texto;
+    if (r.uso) {
+      uso.entrada += r.uso.entrada; uso.salida += r.uso.salida;
+      uso.cacheLeido += r.uso.cacheLeido; uso.cacheEscrito += r.uso.cacheEscrito;
+    }
 
     if (r.fin !== "herramientas" || r.llamadas.length === 0) {
       return cerrar(r.fin === "cortado" ? "cortado" : "terminado", vuelta);
@@ -90,7 +99,11 @@ export async function preguntar(pregunta: string, deps: Dependencias): Promise<C
     // Si se parten en varios, el modelo aprende a no pedir varias a la vez y se
     // vuelve más lento y más caro.
     const resultados = r.llamadas.map(ejecutar);
-    r.llamadas.forEach((llamada, i) => pasos.push({ llamada, resultado: resultados[i] }));
+    r.llamadas.forEach((llamada, i) => {
+      const paso = { llamada, resultado: resultados[i] };
+      pasos.push(paso);
+      deps.alPaso?.(paso);
+    });
     mensajes.push({ rol: "resultados", resultados });
   }
 

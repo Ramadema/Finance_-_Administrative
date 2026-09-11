@@ -165,7 +165,7 @@ const OBLIGACIONES = [
     "Cambió la taxonomía de categorías → docs/dominio.md, y la tabla de secciones del README si se ve distinto." },
   { patron: /^src\/components\/Nav\.tsx$/, dice:
     "Cambiaron las secciones → la tabla \"Secciones\" del README y docs/arquitectura.md." },
-  { patron: /^src\/lib\/ia\/(herramientas|sistema|agente)\.ts$/, dice:
+  { patron: /^src\/lib\/ia\/(herramientas|sistema|agente|clave|proveedores\/anthropic)\.ts$/, dice:
     "Cambió el agente → docs/agente.md (la tabla de herramientas, el bucle o las reglas del sistema)." },
   { patron: /^src\/lib\/categorize\/recurrencia\.ts$/, dice:
     "Cambió cómo se detecta lo fijo → docs/dominio.md y el ADR 0004 (si cambió el criterio, va un ADR nuevo)." },

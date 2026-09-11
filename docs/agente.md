@@ -56,7 +56,10 @@ mostrarlos.
 | `src/lib/ia/agente.ts` | El **bucle** | todo lo anterior |
 | `src/lib/ia/respaldo.ts` | El control de números | — |
 | `src/lib/ia/proveedores/falso.ts` | Un modelo de mentira que sigue un guion: con él se testea todo sin red ni key | `tipos.ts` |
+| `src/lib/ia/proveedores/anthropic.ts` | El **adaptador** real: traduce el puerto a la API de Messages y de vuelta. Único archivo que importa el SDK | `@anthropic-ai/sdk` |
+| `src/lib/ia/clave.ts` | La key y el modelo elegido, en `localStorage` | — |
 | `src/lib/ia/index.ts` | Lo único que el resto de la app importa. El lint lo hace cumplir | — |
+| `src/components/Preguntar.tsx` | La pantalla: key, pregunta, y la respuesta con sus fuentes | `@/lib/ia` |
 
 `lib/ia` es una capa con la misma regla que `lib/nube`: **es la única que puede
 hablar con un modelo**. Nadie más importa un SDK de IA, y nadie importa de
@@ -94,6 +97,67 @@ nunca la descripción cruda del banco, nunca nada que el modelo no haya pedido.
 No es "nada sale de tu máquina" (ADR 0001). Es "sale lo que preguntás y lo que
 hace falta para contestarlo", bajo tu key, opt-in. Está escrito en el
 [ADR 0011](decisiones/0011-agente-con-tu-propia-key.md).
+
+## El adaptador de Anthropic
+
+`proveedores/anthropic.ts` es la traducción entre nuestro puerto y la API de
+Messages. Lo que hace, y por qué, en el orden en que arma la petición:
+
+- **`system` con punto de caché** (`cache_control: ephemeral`). El sistema y las
+  herramientas son idénticos en cada vuelta; con el punto de caché ahí, a partir
+  de la segunda vuelta ese prefijo se cobra al 10%. Por eso `armarSistema()` es
+  determinístico: un byte distinto y el caché no aplica.
+- **`strict: true` en cada herramienta.** La API garantiza que la llamada cumple
+  el JSON Schema o no la hace. Sin esto validás a mano y el modelo se equivoca en
+  el nombre de un campo cada tanto.
+- **Pensamiento adaptativo y `effort: medium`.** El modelo decide cuánto razonar
+  antes de elegir herramientas; elegir sobre un catálogo de ocho no necesita
+  mucho. Haiku 4.5 es de otra generación y no acepta ninguna de las dos cosas —
+  mandárselas es un error 400, así que el adaptador las omite para ese modelo.
+- **`crudo`**: lo que el modelo devolvió se guarda tal cual en el mensaje del
+  asistente y se le devuelve tal cual en la vuelta siguiente. Ahí van sus bloques
+  de razonamiento, que la API exige intactos. El agente no los entiende ni los
+  necesita: solo los repite. Es la razón de que el puerto tenga ese campo opaco.
+- **Los errores se traducen** de la clase del SDK a algo que se pueda leer y
+  resolver: key inválida, sin crédito, límite de uso, sin conexión. De lo más
+  específico a lo más general, porque todas heredan de la misma.
+
+Se prueba **sin red**: el SDK acepta un `fetch` propio, y el test le pasa uno que
+guarda la petición y contesta con una respuesta armada a mano. Así se verifica la
+traducción completa —qué JSON sale, qué vuelve— sin gastar un token. Es una
+técnica general para cualquier cliente HTTP, no solo este.
+
+## La key y lo que cuesta
+
+La key la pegás una vez por navegador y queda en `localStorage` (`clave.ts`).
+**No va a la base de Dexie** a propósito: la base entera viaja en el respaldo de
+Drive, y una key dentro de un respaldo es una key en un archivo que no
+controlás. Tampoco va al repo ni a Vercel: nada que empiece con `NEXT_PUBLIC_`,
+porque eso termina dentro del JavaScript que descarga cualquiera.
+
+El SDK exige `dangerouslyAllowBrowser: true` para correr en el navegador. El
+nombre asusta con razón: exponer **tu** key en una app de **terceros** es
+peligroso. Acá la key es del usuario, en su navegador, y no viaja a nadie más que
+a Anthropic — el "peligro" no aplica. La protección que sí importa es externa:
+un tope de gasto mensual en la consola, para que aunque se filtre el daño tenga
+techo.
+
+Cada respuesta muestra abajo los tokens de entrada (y cuántos vinieron del
+caché), los de salida y el costo estimado. Los precios de lista están en
+`MODELOS`, en `anthropic.ts`, con la fecha en que se tomaron. Una pregunta
+típica —dos vueltas, ~1.500 tokens de sistema, ~200 de salida— cuesta alrededor
+de un centavo con Opus 5, y bastante menos con los otros dos.
+
+## La pantalla
+
+`Preguntar.tsx` muestra la respuesta en un orden deliberado: primero el texto del
+modelo **con sus cifras sin respaldo marcadas**, y debajo "De dónde salió" — cada
+herramienta que se ejecutó, con qué parámetros, y la tabla con lo que devolvió.
+Esas tablas las calculó la app; el texto es la explicación. Si hay una marca, la
+pantalla lo dice: fiate de las tablas.
+
+Mientras el modelo trabaja, `alPaso` va mostrando las herramientas a medida que
+se ejecutan: se ve al agente decidir.
 
 ## Cómo se prueba sin key
 
@@ -160,8 +224,8 @@ preguntas reales son la mejor semilla.
 | | Qué | Estado |
 |---|---|---|
 | 0 | Puerto, herramientas, bucle, control de números, proveedor falso, tests, frontera en el lint | **hecha** |
-| 1 | Adaptador Anthropic (tu key en el navegador, opt-in), pantalla "Preguntale a tus datos" que muestra los resultados de las herramientas como fuente y el texto como explicación | siguiente |
-| 2 | Embeddings locales (en el navegador): herramienta "movimientos parecidos" y el paso *similitud* en la cascada de categorización | |
+| 1 | Adaptador Anthropic (tu key en el navegador, opt-in), pantalla "Preguntar" que muestra los resultados de las herramientas como fuente y el texto como explicación, tokens y costo por pregunta | **hecha** |
+| 2 | Embeddings locales (en el navegador): herramienta "movimientos parecidos" y el paso *similitud* en la cascada de categorización | siguiente |
 | 3 | Documentos adjuntos + RAG con citas | si entra Documentos |
 | 4 | El agente desde afuera de la app (un backend chico que lee tu respaldo) | supersede 0001 entero |
 

@@ -5,7 +5,11 @@ te muestra a dónde se va la plata: en qué gastás, cuánto es fijo, cuánto te
 sobra y qué cuotas ya tenés comprometidas.
 
 **Todo corre en tu navegador.** No hay servidor, no hay base de datos en la nube
-y no hay API keys. Tus movimientos bancarios nunca salen de tu máquina.
+y no hay ninguna API key nuestra. Tus movimientos bancarios nunca salen de tu
+máquina — salvo que actives **Preguntar**, el asistente opcional que usa tu
+propia key de Anthropic: ahí sale tu pregunta y lo que hace falta para
+contestarla (totales por categoría o comercio, o los movimientos que coincidan
+con una búsqueda), nunca la base entera ni la descripción cruda del banco.
 
 ## Cómo se usa
 
@@ -23,7 +27,7 @@ de descarga del encabezado — si limpiás los datos del navegador, se van.
 ```bash
 npm install
 npm run dev          # http://localhost:3000
-npm test             # 184 tests
+npm test             # 192 tests
 npm run build        # export estático a ./out
 ```
 
@@ -56,6 +60,7 @@ Cloudflare Pages sin tocar una línea.
 | **Ahorro** | Cargás tus ingresos → capacidad de ahorro, proyección a 12 meses, simulador de recorte, fondo de emergencia |
 | **Alertas** | Observaciones automáticas sobre tu propio historial |
 | **Movimientos** | El detalle auditable; acá categorizás lo que quedó suelto |
+| **Preguntar** | Le preguntás a tus datos en castellano. El modelo elige qué calcular y la app calcula; se ve de dónde salió cada número. Opcional, con tu propia key de Anthropic |
 
 ## Cómo está armado
 
@@ -177,4 +182,5 @@ salen del proceso de test.
   todavía no: por eso "Te sobra" aparece vacío si solo cargaste tarjetas.
 - Los consumos en dólares **no se convierten a pesos** (el resumen no trae
   cotización). Se muestran aparte para que no desaparezcan del análisis.
-- Sin sincronización entre dispositivos. El respaldo JSON cubre el hueco.
+- La sincronización entre dispositivos es manual, por el respaldo en tu Google
+  Drive (botón del encabezado). No hay sincronización automática.
