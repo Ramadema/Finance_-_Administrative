@@ -26,9 +26,14 @@ Un agente que corre **en el navegador**, con estas propiedades:
   `numerosSinRespaldo()` marca en la respuesta cualquier cifra que no haya salido
   de una herramienta. La fuente de verdad de la respuesta son los resultados de
   las herramientas; el texto del modelo es la explicación.
-- **La key es del usuario**, pegada en la app y guardada en su navegador. No hay
-  key nuestra, no hay servidor, no hay costo para el proyecto: cada uno paga sus
-  centavos. En cada dispositivo hay que pegarla una vez.
+- **La key es del usuario** y vive en la carpeta privada de la app en su Drive
+  (`plata-ia.json`, al lado del respaldo pero en otro archivo). Se pega una vez;
+  en cualquier dispositivo, entrar con Google la trae. No hay key nuestra, no
+  hay servidor, no hay costo para el proyecto: cada uno paga sus centavos.
+  *(Precisado el 2026-09-11: la primera versión la guardaba solo en el
+  navegador, y había que pegarla en cada dispositivo.)*
+- **Solo su cuenta puede preguntar.** Sin sesión de Google no hay key, y sin
+  key la pantalla solo ofrece entrar. Otra cuenta llega a una carpeta vacía.
 - **Opt-in.** Sin key la función no aparece, y la app entera sigue igual.
 - **Puerto y adaptadores.** `src/lib/ia/tipos.ts` define qué le pedimos a un
   modelo; Anthropic es un adaptador, y un guion de test es otro. El resto de la
@@ -45,12 +50,15 @@ Un agente que corre **en el navegador**, con estas propiedades:
   por categoría o comercio, y en una búsqueda, los movimientos que coinciden.
   Nunca la base entera ni la descripción cruda. Bajo tu key y tu decisión. El
   README tiene que decirlo con esas palabras.
+- **Extiende a [0006](0006-respaldo-en-drive-sin-backend.md)**: la carpeta
+  privada de Drive pasa a guardar también ajustes, no solo el respaldo.
 - Se puede usar desde cualquier dispositivo que tenga la app y la key: el
   teléfono incluido, con los datos que llegan por el respaldo de Drive.
 - El costo es de centavos por mes para uso personal, y lo paga cada usuario.
 - **Se paga**: una función depende de un tercero (si la API cae, esa función no
-  anda); la key vive en `localStorage`, así que quien tenga acceso a ese
-  navegador tiene acceso a la key; el control de números es una heurística —
+  anda); quien tenga acceso a la cuenta de Google del dueño tiene acceso a la
+  key — que es exactamente el mismo acceso que ya tiene a todos sus datos; el
+  control de números es una heurística —
   agarra cifras de plata y porcentajes, deja pasar cantidades chicas—, no una
   demostración.
 - Lo que se aprendió construyendo el núcleo quedó escrito en

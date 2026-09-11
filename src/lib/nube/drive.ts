@@ -3,15 +3,21 @@
 import { obtenerToken, ErrorGoogle } from "./google";
 
 /**
- * Lee y escribe UN archivo en la carpeta privada de la app en tu Drive.
+ * Lee y escribe archivos en la carpeta privada de la app en tu Drive.
  *
- * El contenido es el mismo respaldo JSON que baja el botón del encabezado, así
- * que la nube no introduce un formato nuevo: lo que sube es exactamente lo que
- * ya sabías exportar, y lo que baja entra por el mismo importador. Si algún día
- * Drive deja de andar, el respaldo a mano sigue siendo el mismo archivo.
+ * El principal es el respaldo (`plata.json`): el mismo JSON que baja el botón
+ * del encabezado, así que la nube no introduce un formato nuevo — lo que sube
+ * es exactamente lo que ya sabías exportar, y lo que baja entra por el mismo
+ * importador. Si algún día Drive deja de andar, el respaldo a mano sigue siendo
+ * el mismo archivo.
+ *
+ * Al lado viven archivos chicos de ajustes (hoy, la key del asistente). Misma
+ * carpeta, misma cuenta, misma regla: solo tu Google los ve. Van separados del
+ * respaldo a propósito, para que bajar o compartir el respaldo de datos nunca
+ * arrastre una credencial.
  */
 
-const NOMBRE = "plata.json";
+const RESPALDO = "plata.json";
 const API = "https://www.googleapis.com/drive/v3";
 const SUBIDA = "https://www.googleapis.com/upload/drive/v3";
 
@@ -59,11 +65,10 @@ function aArchivo(f: FilaDrive): ArchivoNube {
   };
 }
 
-/** El respaldo que ya está en Drive, o null si todavía no subiste ninguno. */
-export async function buscarRespaldo(): Promise<ArchivoNube | null> {
+async function buscarArchivo(nombre: string): Promise<ArchivoNube | null> {
   const url =
     `${API}/files?spaces=appDataFolder` +
-    `&q=${encodeURIComponent(`name='${NOMBRE}' and trashed=false`)}` +
+    `&q=${encodeURIComponent(`name='${nombre}' and trashed=false`)}` +
     `&fields=${encodeURIComponent("files(id,modifiedTime,size)")}` +
     `&orderBy=modifiedTime desc&pageSize=1`;
   const r = await pedir(url);
@@ -73,16 +78,16 @@ export async function buscarRespaldo(): Promise<ArchivoNube | null> {
 }
 
 /**
- * Sube el respaldo. Si ya existe uno lo REEMPLAZA, para no ir dejando copias
- * sueltas que después nadie sabe cuál es la buena.
+ * Sube un archivo. Si ya existe uno con ese nombre lo REEMPLAZA, para no ir
+ * dejando copias sueltas que después nadie sabe cuál es la buena.
  */
-export async function subirRespaldo(contenido: string): Promise<ArchivoNube> {
-  const existente = await buscarRespaldo();
+async function subirArchivo(nombre: string, contenido: string): Promise<ArchivoNube> {
+  const existente = await buscarArchivo(nombre);
   const campos = "?uploadType=multipart&fields=id,modifiedTime,size";
 
   const metadatos = existente
-    ? { name: NOMBRE }
-    : { name: NOMBRE, parents: ["appDataFolder"] };
+    ? { name: nombre }
+    : { name: nombre, parents: ["appDataFolder"] };
 
   const limite = "plata-" + Math.random().toString(36).slice(2);
   const cuerpo =
@@ -103,8 +108,35 @@ export async function subirRespaldo(contenido: string): Promise<ArchivoNube> {
   return aArchivo((await r.json()) as FilaDrive);
 }
 
-/** Trae el contenido del respaldo guardado en Drive. */
-export async function bajarRespaldo(id: string): Promise<string> {
+async function bajarArchivo(id: string): Promise<string> {
   const r = await pedir(`${API}/files/${id}?alt=media`);
   return r.text();
+}
+
+// ── el respaldo ────────────────────────────────────────────────────────
+
+/** El respaldo que ya está en Drive, o null si todavía no subiste ninguno. */
+export const buscarRespaldo = (): Promise<ArchivoNube | null> => buscarArchivo(RESPALDO);
+
+/** Sube el respaldo, reemplazando el anterior. */
+export const subirRespaldo = (contenido: string): Promise<ArchivoNube> => subirArchivo(RESPALDO, contenido);
+
+/** Trae el contenido del respaldo guardado en Drive. */
+export const bajarRespaldo = (id: string): Promise<string> => bajarArchivo(id);
+
+// ── ajustes chicos ─────────────────────────────────────────────────────
+
+/** El contenido de un archivo de ajustes, o null si no existe. */
+export async function leerArchivoApp(nombre: string): Promise<string | null> {
+  const archivo = await buscarArchivo(nombre);
+  return archivo ? bajarArchivo(archivo.id) : null;
+}
+
+export async function escribirArchivoApp(nombre: string, contenido: string): Promise<void> {
+  await subirArchivo(nombre, contenido);
+}
+
+export async function borrarArchivoApp(nombre: string): Promise<void> {
+  const archivo = await buscarArchivo(nombre);
+  if (archivo) await pedir(`${API}/files/${archivo.id}`, { method: "DELETE" });
 }

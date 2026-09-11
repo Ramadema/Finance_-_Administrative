@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import { KeyRound, Sparkles, Trash2, Wrench, AlertTriangle, Loader2 } from "lucide-react";
+import { KeyRound, Sparkles, Trash2, Wrench, AlertTriangle, Loader2, LogIn, Cloud } from "lucide-react";
 import { useDatos } from "@/lib/DatosContext";
+import type { SesionDrive } from "@/lib/nube/useSesionDrive";
 import {
-  preguntar, HERRAMIENTAS, proveedorAnthropic, costoEstimadoUSD, ErrorProveedor, MODELOS,
-  suscribirIA, leerClave, guardarClave, borrarClave, leerModelo, guardarModelo,
-  type Conversacion, type Paso, type ModeloId,
+  preguntar, HERRAMIENTAS, proveedorAnthropic, costoEstimadoUSD, ErrorProveedor, MODELOS, MODELO_POR_DEFECTO,
+  suscribirIA, leerClave, borrarClave, leerModelo, guardarModelo, guardarClave,
+  ARCHIVO_AJUSTES, serializarAjustes, aplicarAjustes,
+  type Conversacion, type Paso, type ModeloId, type ContextoDatos,
 } from "@/lib/ia";
 import { formatARS } from "@/lib/ingest/numero";
 import { Card, CardHead } from "./ui/Card";
@@ -15,11 +17,14 @@ import { Boton } from "./ui/Boton";
 /**
  * "Preguntale a tus datos".
  *
- * La pantalla muestra dos cosas y las jerarquiza a propósito: primero lo que
- * devolvieron las herramientas (los números reales, calculados por la app) y
- * después el texto del modelo, que es la explicación. Si el texto trae una
- * cifra que no salió de ninguna herramienta, se marca: el modelo no inventa
- * números acá sin que se note.
+ * Quién puede preguntar: quien entre con la cuenta de Google del dueño. La key
+ * del asistente vive en la carpeta privada de la app en su Drive; al entrar se
+ * trae sola, al salir se olvida. Sin key, la pantalla pide entrar — y la única
+ * vez que pide pegar una key es la primera, con la sesión ya iniciada.
+ *
+ * La respuesta jerarquiza a propósito: primero el texto del modelo con sus
+ * cifras sin respaldo marcadas, después "De dónde salió" — lo que devolvieron
+ * las herramientas, que son los números reales, calculados por la app.
  */
 
 const SUGERENCIAS = [
@@ -38,9 +43,9 @@ const estiloCampo = {
 };
 
 export function Preguntar() {
-  const { movimientos, periodos, ingresosPorPeriodo } = useDatos();
+  const { movimientos, periodos, ingresosPorPeriodo, drive } = useDatos();
   const clave = useSyncExternalStore(suscribirIA, leerClave, () => null);
-  const modelo = useSyncExternalStore(suscribirIA, leerModelo, () => MODELOS[0].id);
+  const modelo = useSyncExternalStore(suscribirIA, leerModelo, () => MODELO_POR_DEFECTO);
 
   if (periodos.length === 0) {
     return (
@@ -50,34 +55,81 @@ export function Preguntar() {
     );
   }
 
+  let cuerpo: React.ReactNode;
+  if (clave) {
+    cuerpo = <Consulta clave={clave} modelo={modelo} drive={drive} contexto={{ movimientos, periodos, ingresosPorPeriodo }} />;
+  } else if (drive.disponible && !drive.conectado) {
+    cuerpo = <EntrarConGoogle drive={drive} />;
+  } else {
+    cuerpo = <ConfigurarClave drive={drive.disponible ? drive : null} modelo={modelo} />;
+  }
+
   return (
     <div className="space-y-4">
-      {clave ? (
-        <Consulta clave={clave} modelo={modelo} contexto={{ movimientos, periodos, ingresosPorPeriodo }} />
-      ) : (
-        <ConfigurarClave />
-      )}
+      {cuerpo}
       <QueSale />
     </div>
   );
 }
 
-// ── la key ─────────────────────────────────────────────────────────────
+// ── el acceso ──────────────────────────────────────────────────────────
 
-function ConfigurarClave() {
+function EntrarConGoogle({ drive }: { drive: SesionDrive }) {
+  return (
+    <Card>
+      <CardHead
+        titulo="Preguntar es solo para tu cuenta"
+        sub="La key del asistente está guardada en la carpeta privada de la app en tu Google Drive. Entrá con tu cuenta y la app la trae sola. Sin tu cuenta, nadie puede preguntar."
+      />
+      <div className="flex flex-wrap items-center gap-3 px-5 pb-5">
+        <Boton variante="solido" onClick={() => void drive.entrar()} disabled={drive.ocupado !== null}>
+          {drive.ocupado === "entrando" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogIn className="h-3.5 w-3.5" />}
+          {drive.sesionPrevia ? "Reconectar con Google" : "Entrar con Google"}
+        </Boton>
+        <span className="text-[12.5px]" style={{ color: "var(--ink-mudo)" }}>
+          Google pide un clic por sesión; después no vuelve a preguntar.
+        </span>
+      </div>
+      {drive.error && <div className="px-5 pb-4"><AvisoError mensaje={drive.error} /></div>}
+    </Card>
+  );
+}
+
+/** Solo se ve una vez: con la sesión iniciada y ninguna key en Drive todavía (o sin Drive configurado). */
+function ConfigurarClave({ drive, modelo }: { drive: SesionDrive | null; modelo: ModeloId }) {
   const [valor, setValor] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const valida = valor.trim().startsWith("sk-ant-");
+
+  async function guardar() {
+    if (!valida) return;
+    setError(null);
+    if (!drive) {
+      guardarClave(valor);
+      return;
+    }
+    setGuardando(true);
+    try {
+      const ajustes = { clave: valor.trim(), modelo };
+      await drive.archivo.escribir(ARCHIVO_AJUSTES, serializarAjustes(ajustes));
+      aplicarAjustes(ajustes);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo guardar en Drive.");
+    } finally {
+      setGuardando(false);
+    }
+  }
 
   return (
     <Card>
       <CardHead
-        titulo="Tu key de Anthropic"
-        sub="Queda guardada en este navegador y en ningún otro lado. No viaja al repo, ni a Vercel, ni al respaldo de Drive."
+        titulo={drive ? "Tu key de Anthropic, una sola vez" : "Tu key de Anthropic"}
+        sub={drive
+          ? "Queda en la carpeta privada de la app en tu Drive: en tus otros dispositivos alcanza con entrar con Google. No viaja al repo, ni a Vercel, ni al respaldo de datos."
+          : "Queda guardada en este navegador y en ningún otro lado. No viaja al repo, ni a Vercel, ni al respaldo de Drive."}
       />
-      <form
-        className="flex flex-col gap-2 px-5 pb-5 sm:flex-row"
-        onSubmit={(e) => { e.preventDefault(); if (valida) guardarClave(valor); }}
-      >
+      <form className="flex flex-col gap-2 px-5 pb-3 sm:flex-row" onSubmit={(e) => { e.preventDefault(); void guardar(); }}>
         <input
           type="password"
           autoComplete="off"
@@ -88,11 +140,14 @@ function ConfigurarClave() {
           className={campo}
           style={estiloCampo}
           aria-label="API key de Anthropic"
+          disabled={guardando}
         />
-        <Boton type="submit" variante="solido" disabled={!valida}>
-          <KeyRound className="h-3.5 w-3.5" /> Guardar en este navegador
+        <Boton type="submit" variante="solido" disabled={!valida || guardando}>
+          {guardando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : drive ? <Cloud className="h-3.5 w-3.5" /> : <KeyRound className="h-3.5 w-3.5" />}
+          {drive ? "Guardar en mi Drive" : "Guardar en este navegador"}
         </Boton>
       </form>
+      {error && <div className="px-5 pb-3"><AvisoError mensaje={error} /></div>}
       <p className="px-5 pb-4 text-[12.5px] leading-relaxed" style={{ color: "var(--ink-mudo)" }}>
         Se crea en console.anthropic.com → API keys. Antes de pegarla, ponele un tope de gasto
         mensual en Settings → Limits: con eso, pase lo que pase, el daño tiene techo.
@@ -114,10 +169,11 @@ function QueSale() {
 
 // ── la consulta ────────────────────────────────────────────────────────
 
-function Consulta({ clave, modelo, contexto }: {
+function Consulta({ clave, modelo, drive, contexto }: {
   clave: string;
   modelo: ModeloId;
-  contexto: Parameters<typeof preguntar>[1]["contexto"];
+  drive: SesionDrive;
+  contexto: ContextoDatos;
 }) {
   const [pregunta, setPregunta] = useState("");
   const [enCurso, setEnCurso] = useState<Paso[] | null>(null);
@@ -144,6 +200,17 @@ function Consulta({ clave, modelo, contexto }: {
       if (e instanceof ErrorProveedor && e.tipo === "clave") borrarClave();
     } finally {
       setEnCurso(null);
+    }
+  }
+
+  async function borrarKey() {
+    borrarClave();
+    if (drive.conectado) {
+      try {
+        await drive.archivo.borrar(ARCHIVO_AJUSTES);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "No se pudo borrar la key de Drive.");
+      }
     }
   }
 
@@ -185,9 +252,9 @@ function Consulta({ clave, modelo, contexto }: {
           ))}
         </div>
         <div className="flex items-center justify-between px-5 pb-3 text-[12px]" style={{ color: "var(--ink-mudo)" }}>
-          <span>Key guardada en este navegador.</span>
-          <button type="button" onClick={borrarClave} className="inline-flex items-center gap-1 hover:underline">
-            <Trash2 className="h-3 w-3" /> Borrar key
+          <span>{drive.conectado ? "Key traída de tu Drive." : "Key guardada en este navegador."}</span>
+          <button type="button" onClick={() => void borrarKey()} className="inline-flex items-center gap-1 hover:underline">
+            <Trash2 className="h-3 w-3" /> {drive.conectado ? "Borrar key de Drive" : "Borrar key"}
           </button>
         </div>
       </Card>
@@ -331,7 +398,7 @@ function TextoMarcado({ texto, marcas }: { texto: string; marcas: string[] }) {
   );
 }
 
-/** `{periodo: "2026-08", limite: null}` → `periodo: 2026-08` */
+/** `{periodo: "2026-08", limite: null}` → `(periodo: 2026-08)` */
 function resumenEntrada(entrada: Record<string, unknown>): string {
   const partes = Object.entries(entrada)
     .filter(([, v]) => v !== null && v !== undefined)

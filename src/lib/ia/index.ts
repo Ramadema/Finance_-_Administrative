@@ -13,4 +13,7 @@ export {
   proveedorAnthropic, costoEstimadoUSD, ErrorProveedor,
   MODELOS, MODELO_POR_DEFECTO, esModelo, type ModeloId,
 } from "./proveedores/anthropic";
-export { suscribirIA, leerClave, guardarClave, borrarClave, leerModelo, guardarModelo } from "./clave";
+export {
+  suscribirIA, leerClave, guardarClave, borrarClave, leerModelo, guardarModelo,
+  ARCHIVO_AJUSTES, serializarAjustes, parsearAjustes, aplicarAjustes, type AjustesIA,
+} from "./clave";

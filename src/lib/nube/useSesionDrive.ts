@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { exportarJSON, importarJSON, guardarConfig, leerConfig } from "../db/repo";
 import { obtenerToken, cerrarSesion, HAY_CLIENT_ID, ErrorGoogle } from "./google";
-import { buscarRespaldo, subirRespaldo, bajarRespaldo, type ArchivoNube } from "./drive";
+import {
+  buscarRespaldo, subirRespaldo, bajarRespaldo,
+  leerArchivoApp, escribirArchivoApp, borrarArchivoApp, type ArchivoNube,
+} from "./drive";
 
 /**
  * Sesión de Drive, compartida por toda la app.
@@ -28,6 +31,15 @@ export interface Conflicto {
   movimientosLocales: number;
 }
 
+/** Archivos chicos de ajustes en la misma carpeta privada. No es el respaldo. */
+export interface ArchivosApp {
+  leer: (nombre: string) => Promise<string | null>;
+  escribir: (nombre: string, contenido: string) => Promise<void>;
+  borrar: (nombre: string) => Promise<void>;
+}
+
+const ARCHIVOS: ArchivosApp = { leer: leerArchivoApp, escribir: escribirArchivoApp, borrar: borrarArchivoApp };
+
 export interface SesionDrive {
   disponible: boolean;
   conectado: boolean;
@@ -47,17 +59,26 @@ export interface SesionDrive {
   traer: () => Promise<void>;
   descartarConflicto: () => void;
   limpiarError: () => void;
+  archivo: ArchivosApp;
 }
 
 export function useSesionDrive({
   movimientosLocales,
   recargar,
   listo,
+  alEntrar,
+  alSalir,
 }: {
   movimientosLocales: number;
   recargar: () => Promise<void>;
   /** La base local ya se leyó: antes de eso no se sabe si está vacía. */
   listo: boolean;
+  /**
+   * Qué más hacer apenas hay sesión, además de mirar el respaldo. Lo pasa el
+   * contexto: esta capa no sabe qué otras cosas viven en la carpeta de la app.
+   */
+  alEntrar?: (archivo: ArchivosApp) => Promise<void>;
+  alSalir?: () => void;
 }): SesionDrive {
   const [conectado, setConectado] = useState(false);
   const [sesionPrevia, setSesionPrevia] = useState(false);
@@ -133,7 +154,13 @@ export function useSesionDrive({
     } finally {
       setOcupado(null);
     }
-  }, [alConectar, fallar]);
+    // Aparte del respaldo, para que un tropiezo acá no deshaga la sesión que ya entró.
+    try {
+      await alEntrar?.(ARCHIVOS);
+    } catch (e) {
+      fallar(e);
+    }
+  }, [alConectar, alEntrar, fallar]);
 
   const salir = useCallback(async () => {
     await cerrarSesion();
@@ -142,7 +169,8 @@ export function useSesionDrive({
     setSesionPrevia(false);
     setEnNube(null);
     setConflicto(null);
-  }, []);
+    alSalir?.();
+  }, [alSalir]);
 
   const guardar = useCallback(async () => {
     setError(null);
@@ -181,5 +209,6 @@ export function useSesionDrive({
     entrar, salir, guardar, traer,
     descartarConflicto: () => setConflicto(null),
     limpiarError: () => setError(null),
+    archivo: ARCHIVOS,
   };
 }

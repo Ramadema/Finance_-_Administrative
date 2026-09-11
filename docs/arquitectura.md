@@ -27,7 +27,7 @@ navegador, y todo lo que ves arriba es cálculo derivado de esos movimientos.
 ```
 
 La dependencia va en un solo sentido: **UI → dominio → nada**. El dominio no
-sabe que existen React, IndexedDB ni Drive; por eso los 192 tests corren en
+sabe que existen React, IndexedDB ni Drive; por eso los 195 tests corren en
 milisegundos, sin navegador y sin un solo mock.
 
 ## Con qué está hecho

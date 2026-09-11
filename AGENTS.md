@@ -25,7 +25,7 @@ npm run lint && npm run typecheck && npm test && npm run deps:check && npm run d
 ```
 
 Los cinco tienen que pasar. No están de adorno: el lint es el que hace ciertas
-las fronteras de `docs/arquitectura.md`, y los 192 tests son el contrato del
+las fronteras de `docs/arquitectura.md`, y los 195 tests son el contrato del
 dominio, y `docs:check` verifica que la documentación siga describiendo este
 repo y no el de hace tres meses. Si tocaste el parseo del Excel, corré además
 `npm test` con archivos reales en `samples/` (la tanda de regresión se saltea
@@ -93,10 +93,11 @@ conviene un `eslint-disable`. Hoy los únicos `eslint-disable` del repo son 7 de
 - **No romper el export estático.** Nada de `route handlers`, `middleware` ni
   `server actions`: `next build` tiene que seguir escupiendo `out/`.
 - **No commitear nada de `samples/`.** Son resúmenes bancarios reales.
-- **La key del usuario vive en `localStorage` y en ningún otro lado**
-  (`src/lib/ia/clave.ts`). No va a la base ni a `Config`: la base viaja en el
-  respaldo de Drive y la key no puede viajar con ella. No se loguea ni se
-  muestra entera en pantalla.
+- **La key del usuario vive en su Drive (`plata-ia.json`, carpeta privada de la
+  app) y se copia a `localStorage` al entrar con Google** (`src/lib/ia/clave.ts`).
+  Nunca va a la base ni a `Config`: la base viaja en el respaldo de datos y la
+  key no puede viajar con ella. No se loguea ni se muestra entera en pantalla.
+  Preguntar exige haber entrado con la cuenta del dueño; no agregues atajos.
 
 ## La documentación se actualiza en el mismo cambio
 

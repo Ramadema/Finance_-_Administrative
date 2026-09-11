@@ -6,10 +6,11 @@ sobra y qué cuotas ya tenés comprometidas.
 
 **Todo corre en tu navegador.** No hay servidor, no hay base de datos en la nube
 y no hay ninguna API key nuestra. Tus movimientos bancarios nunca salen de tu
-máquina — salvo que actives **Preguntar**, el asistente opcional que usa tu
-propia key de Anthropic: ahí sale tu pregunta y lo que hace falta para
-contestarla (totales por categoría o comercio, o los movimientos que coincidan
-con una búsqueda), nunca la base entera ni la descripción cruda del banco.
+máquina — salvo que uses **Preguntar**, el asistente opcional que usa tu propia
+key de Anthropic, guardada en tu Google Drive: solo quien entre con tu cuenta
+puede preguntar, y ahí sale tu pregunta y lo que hace falta para contestarla
+(totales por categoría o comercio, o los movimientos que coincidan con una
+búsqueda), nunca la base entera ni la descripción cruda del banco.
 
 ## Cómo se usa
 
@@ -27,7 +28,7 @@ de descarga del encabezado — si limpiás los datos del navegador, se van.
 ```bash
 npm install
 npm run dev          # http://localhost:3000
-npm test             # 192 tests
+npm test             # 195 tests
 npm run build        # export estático a ./out
 ```
 
@@ -60,7 +61,7 @@ Cloudflare Pages sin tocar una línea.
 | **Ahorro** | Cargás tus ingresos → capacidad de ahorro, proyección a 12 meses, simulador de recorte, fondo de emergencia |
 | **Alertas** | Observaciones automáticas sobre tu propio historial |
 | **Movimientos** | El detalle auditable; acá categorizás lo que quedó suelto |
-| **Preguntar** | Le preguntás a tus datos en castellano. El modelo elige qué calcular y la app calcula; se ve de dónde salió cada número. Opcional, con tu propia key de Anthropic |
+| **Preguntar** | Le preguntás a tus datos en castellano. El modelo elige qué calcular y la app calcula; se ve de dónde salió cada número. Solo con tu cuenta de Google y tu propia key de Anthropic |
 
 ## Cómo está armado
 

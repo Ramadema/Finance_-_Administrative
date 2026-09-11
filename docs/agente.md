@@ -57,7 +57,7 @@ mostrarlos.
 | `src/lib/ia/respaldo.ts` | El control de números | — |
 | `src/lib/ia/proveedores/falso.ts` | Un modelo de mentira que sigue un guion: con él se testea todo sin red ni key | `tipos.ts` |
 | `src/lib/ia/proveedores/anthropic.ts` | El **adaptador** real: traduce el puerto a la API de Messages y de vuelta. Único archivo que importa el SDK | `@anthropic-ai/sdk` |
-| `src/lib/ia/clave.ts` | La key y el modelo elegido, en `localStorage` | — |
+| `src/lib/ia/clave.ts` | La key: qué se guarda en Drive (`plata-ia.json`), cómo se lee y la copia local en `localStorage` | — |
 | `src/lib/ia/index.ts` | Lo único que el resto de la app importa. El lint lo hace cumplir | — |
 | `src/components/Preguntar.tsx` | La pantalla: key, pregunta, y la respuesta con sus fuentes | `@/lib/ia` |
 
@@ -127,13 +127,32 @@ guarda la petición y contesta con una respuesta armada a mano. Así se verifica
 traducción completa —qué JSON sale, qué vuelve— sin gastar un token. Es una
 técnica general para cualquier cliente HTTP, no solo este.
 
-## La key y lo que cuesta
+## Quién puede preguntar, y dónde está la key
 
-La key la pegás una vez por navegador y queda en `localStorage` (`clave.ts`).
-**No va a la base de Dexie** a propósito: la base entera viaja en el respaldo de
-Drive, y una key dentro de un respaldo es una key en un archivo que no
-controlás. Tampoco va al repo ni a Vercel: nada que empiece con `NEXT_PUBLIC_`,
-porque eso termina dentro del JavaScript que descarga cualquiera.
+**Quien entre con la cuenta de Google del dueño.** La key vive en un archivo
+chico (`plata-ia.json`) en la carpeta privada de la app en su Drive — la misma
+carpeta oculta del respaldo, a la que solo esa cuenta puede entrar. Se pega
+**una sola vez**, con la sesión iniciada; en cualquier otro dispositivo alcanza
+con "Entrar con Google": `DatosContext` engancha en el login de Drive una
+lectura de ese archivo y copia la key a `localStorage` (`aplicarAjustes`). Al
+salir de Google, la copia se borra. Así "poder preguntar" y "haber entrado con
+tu cuenta" son la misma cosa, sin servidor y sin que la app tenga ninguna key
+propia.
+
+Quien abra la app sin tu cuenta ve un botón para entrar y nada más. Quien entre
+con *otra* cuenta de Google llega a una carpeta vacía: no hay key, no hay
+preguntas (podría pegar la suya y gastar sus propios tokens, que no es tu
+problema).
+
+La key **no va a la base de Dexie** a propósito: la base entera viaja en el
+respaldo de datos, y una key dentro de un respaldo es una key en un archivo
+que se puede bajar y compartir. Por eso son dos archivos en Drive y no uno.
+Tampoco va al repo ni a Vercel: nada que empiece con `NEXT_PUBLIC_`, porque eso
+termina dentro del JavaScript que descarga cualquiera.
+
+El modelo elegido, en cambio, es una preferencia **de cada dispositivo**: en el
+teléfono quizás quieras el más barato. Drive guarda uno como sugerencia inicial
+y `localStorage` manda.
 
 El SDK exige `dangerouslyAllowBrowser: true` para correr en el navegador. El
 nombre asusta con razón: exponer **tu** key en una app de **terceros** es
